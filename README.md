@@ -1,0 +1,2 @@
+# cotrader-desk.
+Gold
