@@ -41,7 +41,6 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
-/* Header */
 .topbar {
   flex: 0 0 auto;
   display: flex; justify-content: space-between; align-items: center;
@@ -60,7 +59,6 @@ body {
 .dot.sim { background: var(--gold); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-/* Ticker Strip */
 .ticker {
   flex: 0 0 auto;
   display: flex; justify-content: space-between; align-items: center;
@@ -71,7 +69,6 @@ body {
 }
 .ticker-price { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; }
 
-/* Main Scrollable Views */
 .view-container {
   flex: 1 1 auto; overflow-y: auto;
   padding: 14px 16px 90px;
@@ -82,7 +79,6 @@ body {
 .tab-view.active { display: block; animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-/* Signal Card */
 .sig-card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -119,7 +115,6 @@ body {
 .sig-status.tp1 { color: var(--gold); }
 .sig-status.loss { color: var(--red); }
 
-/* 3-Column Box: Entry | SL | TP1 */
 .grid-3 {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
   margin-bottom: 8px;
@@ -140,7 +135,6 @@ body {
 .lvl-box.sl .lvl-val { color: var(--red); }
 .lvl-box.tp-hit .lvl-val { color: var(--green); }
 
-/* 2-Column Sub Box: TP2 | TP3 */
 .grid-2 {
   display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
   margin-bottom: 12px;
@@ -159,7 +153,6 @@ body {
   background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
 }
 
-/* Card Footer */
 .sig-foot {
   display: flex; justify-content: space-between; align-items: center;
   padding-top: 10px; border-top: 1px solid var(--line);
@@ -173,7 +166,6 @@ body {
 }
 .foot-btn.gold { color: var(--gold); }
 
-/* Chart & Tools View */
 .panel {
   background: var(--card); border: 1px solid var(--line);
   border-radius: 14px; padding: 14px; margin-bottom: 12px;
@@ -196,7 +188,6 @@ body {
   color: var(--text); font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px;
 }
 
-/* Modal Details */
 .modal-bg {
   position: fixed; inset: 0; background: rgba(0,0,0,0.75);
   display: none; align-items: flex-end; justify-content: center; z-index: 50;
@@ -208,7 +199,6 @@ body {
   padding: 18px 18px calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
-/* Bottom Navigation */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: rgba(12, 13, 15, 0.96);
@@ -261,12 +251,10 @@ body {
 </div>
 
 <main class="view-container">
-  <!-- TAB 1: SIGNALS -->
   <section class="tab-view active" id="view-signals">
     <div id="signalsList"></div>
   </section>
 
-  <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
       <div class="panel-title">Live Chart XAUUSD (M15)</div>
@@ -275,7 +263,6 @@ body {
     <div class="panel" id="activePlanBox"></div>
   </section>
 
-  <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
     <div class="panel">
       <div class="panel-title">Auto Signal Engine (MT5 Technical)</div>
@@ -288,7 +275,6 @@ body {
     </div>
   </section>
 
-  <!-- TAB 4: STATS & BACKTEST -->
   <section class="tab-view" id="view-stats">
     <div class="panel" id="statsSummary"></div>
     <div class="panel" id="btPanel"></div>
@@ -296,7 +282,6 @@ body {
   </section>
 </main>
 
-<!-- Detail Modal -->
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -307,7 +292,6 @@ body {
   </div>
 </div>
 
-<!-- Bottom Navigation -->
 <nav class="bottom-nav">
   <button class="nav-item active" onclick="switchTab('signals', 'Signals', this)">
     <span class="nav-icon">📊</span>
@@ -333,8 +317,8 @@ const $ = id => document.getElementById(id);
 const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-// LINK NGROK AKTIF KAMU (Tersambung langsung ke Flask PC)
-const BACKEND_URL = "https://submitter-corned-payphone.ngrok-free.dev";
+// Ganti IP di bawah ini dengan IP lokal PC kamu (contoh dari CMD: 192.168.100.10)
+const BACKEND_URL = "http://192.168.100.10:5000";
 const POLL_MS = 3000;
 
 let liveOk = false;
@@ -431,7 +415,7 @@ function trendStrat(m15, h1, atr, price) {
   const dir = up ? 'BUY' : dn ? 'SELL' : null;
   const res = { key: 'TREND', name: 'Trend Pullback', dir, score: 0, reasons: [], stopLevel: null };
   if (!dir) {
-    res.reasons.push({ ok: false, txt: 'Tren H1 sideways / belum searah EMA20 & EMA50' });
+    res.reasons.push({ ok: false, txt: 'Tren H1 sideways / belum searah' });
     return res;
   }
   const L = dir === 'BUY';
@@ -439,13 +423,13 @@ function trendStrat(m15, h1, atr, price) {
   const tr50 = trSeries(m15).slice(-50), avgTR = tr50.reduce((x, y) => x + y, 0) / tr50.length;
   const ratio = atr / avgTR;
   [
-    [25, true, `Tren H1 ${L ? 'Bullish' : 'Bearish'} (EMA20 vs EMA50)`],
+    [25, true, `Tren H1 ${L ? 'Bullish' : 'Bearish'}`],
     [10, L ? slope > 0 : slope < 0, `Kemiringan EMA20 H1 searah`],
     [10, sep >= 0.4 * atrH, `Kekuatan tren H1 optimal`],
     [20, Math.abs(last - e20[i]) <= 0.8 * atr, 'Harga pullback dekat EMA20 M15'],
     [10, r >= 40 && r <= 60, `RSI M15 netral`],
     [10, L ? r > rp : r < rp, `Momentum RSI berbalik`],
-    [10, L ? (last > e20[i] && last > op) : (last < e20[i] && last < op), `Candle M15 konfirmasi ${dir}`],
+    [10, L ? (last > e20[i] && last > op) : (last < e20[i] && last < op), `Candle M15 konfirmasi`],
     [5, ratio >= 0.6 && ratio <= 1.8, 'Volatilitas pasar normal']
   ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
 
@@ -483,7 +467,7 @@ function liquidityStrat(m15, atr, h1dir, price) {
     if (Math.abs(price - stop) < minD) stop = L ? price - minD : price + minD;
     const dist = Math.abs(price - stop);
     res.dir = dir; res.stopLevel = stop;
-    res.reasons.push({ ok: true, txt: `Sweep ${L ? 'Low' : 'High'} 40 candle` });
+    res.reasons.push({ ok: true, txt: `Sweep ${L ? 'Low' : 'High'} terdeteksi` });
     res.score = 55;
     [
       [10, depth >= 0.2 * atr, `Kedalaman sapuan optimal`],
@@ -497,7 +481,7 @@ function liquidityStrat(m15, atr, h1dir, price) {
     }
     return res;
   }
-  res.reasons.push({ ok: false, txt: 'Belum ada sapuan likuiditas M15' });
+  res.reasons.push({ ok: false, txt: 'Belum ada sapuan likuiditas' });
   return res;
 }
 
@@ -538,11 +522,11 @@ function obIdmStrat(m15, h1, atr, price) {
           res.stopLevel = stop;
           res.score = 60;
           res.reasons.push({ ok: true, txt: `Bullish OB terdeteksi` });
-          res.reasons.push({ ok: true, txt: `Inducement (IDM) disapu` });
+          res.reasons.push({ ok: true, txt: `Inducement disapu` });
           [
-            [15, impulse >= 2.0 * atr, `Impulsif displacement kuat`],
-            [10, h1Dir === 'BUY', 'Searah tren utama H1'],
-            [10, lastC[4] > lastC[1] || price > lastC[4], 'Reaksi pantulan bullish'],
+            [15, impulse >= 2.0 * atr, `Impulsif kuat`],
+            [10, h1Dir === 'BUY', 'Searah H1'],
+            [10, lastC[4] > lastC[1] || price > lastC[4], 'Reaksi pantulan'],
             [5, (obTop - obBot) <= 1.2 * atr, 'Zona OB presisi']
           ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
           return res;
@@ -575,11 +559,11 @@ function obIdmStrat(m15, h1, atr, price) {
           res.stopLevel = stop;
           res.score = 60;
           res.reasons.push({ ok: true, txt: `Bearish OB terdeteksi` });
-          res.reasons.push({ ok: true, txt: `Inducement (IDM) disapu` });
+          res.reasons.push({ ok: true, txt: `Inducement disapu` });
           [
-            [15, impulse >= 2.0 * atr, `Impulsif displacement kuat`],
-            [10, h1Dir === 'SELL', 'Searah tren utama H1'],
-            [10, lastC[4] < lastC[1] || price < lastC[4], 'Reaksi penolakan bearish'],
+            [15, impulse >= 2.0 * atr, `Impulsif kuat`],
+            [10, h1Dir === 'SELL', 'Searah H1'],
+            [10, lastC[4] < lastC[1] || price < lastC[4], 'Reaksi penolakan'],
             [5, (obTop - obBot) <= 1.2 * atr, 'Zona OB presisi']
           ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
           return res;
@@ -728,7 +712,7 @@ function renderSignals() {
         <div style="font-size:28px;margin-bottom:8px">📡</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:6px">Memindai Setup Grade-A XAUUSD</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot otomatis menganalisis struktur H1 & M15 langsung dari MT5 PC via Ngrok.
+          Bot otomatis menganalisis struktur dari MT5 lokal PC.
         </div>
       </div>`;
     return;
@@ -858,7 +842,7 @@ function renderChart() {
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif untuk ditampilkan di chart.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif.</div>';
 }
 
 function renderEngineUI() {
@@ -868,7 +852,7 @@ function renderEngineUI() {
 
   const a = state.analysis;
   if (!a) {
-    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle M15 & H1 dari MT5...</div>';
+    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle dari MT5...</div>';
     return;
   }
   $('engineRules').innerHTML = a.strats.map(st => `
@@ -900,7 +884,7 @@ function renderStats() {
       <div class="lvl-box"><div class="lvl-lbl">Win Rate</div><div class="lvl-val">${closed.length ? wr + '%' : '—'}</div></div>
     </div>
   `;
-  $('btPanel').innerHTML = '<div class="panel-title">Backtest MT5</div><div style="font-size:12px;color:var(--muted)">Terhubung langsung ke Flask server PC.</div>';
+  $('btPanel').innerHTML = '<div class="panel-title">Backtest MT5</div><div style="font-size:12px;color:var(--muted)">Terhubung ke Flask lokal PC.</div>';
 }
 
 function clearHistory() {
@@ -930,7 +914,6 @@ async function refreshData() {
 
   $('livePrice').textContent = fmt(state.price);
   
-  // Jika backend menyediakan data candles
   if (data && data.candles) {
     state.candles = data.candles;
     runAnalysis();
