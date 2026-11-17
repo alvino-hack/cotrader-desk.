@@ -23,7 +23,14 @@
   --gold-bg: rgba(245, 158, 11, 0.14);
   color-scheme: dark;
 }
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 html, body {
   margin: 0; padding: 0; height: 100%;
   background: var(--bg); color: var(--text);
@@ -500,6 +507,102 @@ function liquidityStrat(m15, atr, h1dir, price) {
   return res;
 }
 
+// Strategy 3: SMC Order Block + Inducement (OB + IDM)
+function obIdmStrat(m15, h1, atr, price) {
+  const n = m15.length;
+  const res = { key: 'OB_IDM', name: 'OB + Inducement', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 50) return res;
+
+  const c1 = h1.map(x => x[4]);
+  const e20h = emaArr(c1, 20), e50h = emaArr(c1, 50);
+  const ih = c1.length - 1;
+  const h1Dir = e20h[ih] > e50h[ih] ? 'BUY' : (e20h[ih] < e50h[ih] ? 'SELL' : null);
+
+  for (let i = n - 6; i >= n - 35; i--) {
+    const c = m15[i];
+    // Bullish OB: candle bearish sebelum impulsif bullish kuat (> 1.4 ATR)
+    if (c[4] < c[1]) {
+      const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
+      if (nextSlice.length < 2) continue;
+      const moveHigh = Math.max(...nextSlice.map(x => x[2]));
+      const impulse = moveHigh - c[3];
+      if (impulse >= 1.4 * atr) {
+        const obTop = Math.max(c[1], c[4]), obBot = c[3];
+        const between = m15.slice(i + 2, n - 1);
+        if (between.length < 3) continue;
+        if (between.some(x => x[4] < obBot - 0.15 * atr)) continue;
+
+        const preMit = between.slice(0, -1);
+        if (preMit.length < 2) continue;
+        const idmLow = Math.min(...preMit.map(x => x[3]));
+        const lastC = m15[n - 1];
+
+        if (idmLow > obTop + 0.1 * atr && lastC[3] <= obTop && lastC[3] < idmLow && price >= obBot && price <= obTop + 0.6 * atr) {
+          let stop = obBot - 0.3 * atr;
+          const dist = price - stop;
+          if (dist < 0.8 * atr) stop = price - 0.8 * atr;
+          if (dist > 3.0 * atr) continue;
+
+          res.dir = 'BUY';
+          res.stopLevel = stop;
+          res.score = 60;
+          res.reasons.push({ ok: true, txt: `Bullish OB terdeteksi di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: `Inducement (IDM) di ${fmtInt(idmLow)} berhasil disapu` });
+          [
+            [15, impulse >= 2.0 * atr, `Impulsif displacement kuat (${(impulse / atr).toFixed(1)} ATR)`],
+            [10, h1Dir === 'BUY', 'Searah struktur tren utama H1 (Bullish)'],
+            [10, lastC[4] > lastC[1] || price > lastC[4], 'Reaksi pantulan bullish dari zona OB'],
+            [5, (obTop - obBot) <= 1.2 * atr, 'Zona OB presisi (risk ketat)']
+          ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+          return res;
+        }
+      }
+    }
+
+    // Bearish OB: candle bullish sebelum impulsif bearish kuat (> 1.4 ATR)
+    if (c[4] > c[1]) {
+      const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
+      if (nextSlice.length < 2) continue;
+      const moveLow = Math.min(...nextSlice.map(x => x[3]));
+      const impulse = c[2] - moveLow;
+      if (impulse >= 1.4 * atr) {
+        const obBot = Math.min(c[1], c[4]), obTop = c[2];
+        const between = m15.slice(i + 2, n - 1);
+        if (between.length < 3) continue;
+        if (between.some(x => x[4] > obTop + 0.15 * atr)) continue;
+
+        const preMit = between.slice(0, -1);
+        if (preMit.length < 2) continue;
+        const idmHigh = Math.max(...preMit.map(x => x[2]));
+        const lastC = m15[n - 1];
+
+        if (idmHigh < obBot - 0.1 * atr && lastC[2] >= obBot && lastC[2] > idmHigh && price <= obTop && price >= obBot - 0.6 * atr) {
+          let stop = obTop + 0.3 * atr;
+          const dist = stop - price;
+          if (dist < 0.8 * atr) stop = price + 0.8 * atr;
+          if (dist > 3.0 * atr) continue;
+
+          res.dir = 'SELL';
+          res.stopLevel = stop;
+          res.score = 60;
+          res.reasons.push({ ok: true, txt: `Bearish OB terdeteksi di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: `Inducement (IDM) di ${fmtInt(idmHigh)} berhasil disapu` });
+          [
+            [15, impulse >= 2.0 * atr, `Impulsif displacement kuat (${(impulse / atr).toFixed(1)} ATR)`],
+            [10, h1Dir === 'SELL', 'Searah struktur tren utama H1 (Bearish)'],
+            [10, lastC[4] < lastC[1] || price < lastC[4], 'Reaksi penolakan bearish dari zona OB'],
+            [5, (obTop - obBot) <= 1.2 * atr, 'Zona OB presisi (risk ketat)']
+          ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+          return res;
+        }
+      }
+    }
+  }
+
+  res.reasons.push({ ok: false, txt: 'Belum ada mitigasi OB setelah sapuan Inducement (IDM)' });
+  return res;
+}
+
 // Master Analyzer
 function runAnalysis() {
   const cd = state.candles;
@@ -509,16 +612,24 @@ function runAnalysis() {
   if (!atr) return null;
   const t = trendStrat(m15, h1, atr, state.price);
   const q = liquidityStrat(m15, atr, t.dir, state.price);
-  if (t.dir && q.dir && t.dir === q.dir) {
-    [t, q].forEach(st => {
-      st.score = Math.min(100, st.score + 10);
-      st.reasons.push({ ok: true, txt: 'Konfluensi Trend + Liquidity (+10)' });
-    });
-  }
+  const ob = obIdmStrat(m15, h1, atr, state.price);
+  const allStrats = [t, q, ob];
+
+  // Bonus konfluensi jika lebih dari 1 strategi sepakat arahnya
+  ['BUY', 'SELL'].forEach(d => {
+    const aligned = allStrats.filter(st => st.dir === d && st.score >= 55);
+    if (aligned.length >= 2) {
+      aligned.forEach(st => {
+        st.score = Math.min(100, st.score + 10);
+        st.reasons.push({ ok: true, txt: `Konfluensi ${aligned.length} Strategi Searah (+10)` });
+      });
+    }
+  });
+
   const tr50 = trSeries(m15).slice(-50);
   const vr = atr / (tr50.reduce((x, y) => x + y, 0) / tr50.length);
   const volOk = vr >= 0.5 && vr <= 2.2;
-  state.analysis = { atr, vr, volOk, strats: [t, q], cT: cd.m15[cd.m15.length - 1][0] };
+  state.analysis = { atr, vr, volOk, strats: allStrats, cT: cd.m15[cd.m15.length - 1][0] };
   renderEngineUI();
   checkAutoSignal();
 }
@@ -529,11 +640,9 @@ function checkAutoSignal() {
   if (!liveOk || !a || !a.volOk) return;
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr).sort((x, y) => y.score - x.score);
   if (!valid.length) return;
-  // Cek konflik
   if (valid.some(s => s.dir === 'BUY') && valid.some(s => s.dir === 'SELL')) return;
 
   const best = valid[0];
-  // Jangan duplikat jika masih ada sinyal OPEN di candle yang sama atau arah yang sama dalam 30 menit
   const openSame = state.signals.find(s => s.status === 'ACTIVE' && (s.cT === a.cT || (Date.now() - s.createdAt < 30 * 60000)));
   if (openSame) return;
 
@@ -543,7 +652,6 @@ function checkAutoSignal() {
   const risk = Math.abs(entry - sl);
   if (risk <= 0.5 || risk > 3.5 * a.atr) return;
 
-  // Hitung TP1 (1R), TP2 (2R), TP3 (3.5R)
   const tp1 = isBuy ? entry + risk * 1.0 : entry - risk * 1.0;
   const tp2 = isBuy ? entry + risk * 2.0 : entry - risk * 2.0;
   const tp3 = isBuy ? entry + risk * 3.5 : entry - risk * 3.5;
@@ -568,7 +676,7 @@ function checkAutoSignal() {
     tp1Hit: false,
     tp2Hit: false,
     tp3Hit: false,
-    status: 'ACTIVE', // ACTIVE, WON, LOSS
+    status: 'ACTIVE',
     createdAt: Date.now(),
     cT: a.cT,
     reasons: best.reasons
@@ -589,10 +697,8 @@ function monitorSignals() {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
-    // Check TP hits
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
       s.tp1Hit = true;
-      // Geser SL ke Break Even setelah TP1 tersentuh
       s.sl = s.entry;
       s.beMoved = true;
       changed = true;
@@ -607,10 +713,9 @@ function monitorSignals() {
       changed = true;
     }
 
-    // Check SL hit
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
       if (s.tp1Hit) {
-        s.status = 'WON'; // Sudah kena TP1 lalu kena BE
+        s.status = 'WON';
       } else {
         s.status = 'LOSS';
       }
@@ -643,7 +748,7 @@ function renderSignals() {
         <div style="font-size:28px;margin-bottom:8px">📡</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:6px">Memindai Setup Grade-A XAUUSD</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot otomatis menganalisis struktur H1 & M15 dari MT5. Kartu sinyal BUY/SELL beserta Entry, SL, TP1, TP2, TP3 akan muncul otomatis di sini saat syarat terpenuhi.
+          Bot otomatis menganalisis struktur H1 & M15 (Trend, Liquidity Sweep, & OB + Inducement) dari MT5. Kartu sinyal akan muncul otomatis saat syarat terpenuhi.
         </div>
       </div>`;
     return;
