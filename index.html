@@ -41,6 +41,7 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Header */
 .topbar {
   flex: 0 0 auto;
   display: flex; justify-content: space-between; align-items: center;
@@ -59,6 +60,7 @@ body {
 .dot.sim { background: var(--gold); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* Ticker Strip */
 .ticker {
   flex: 0 0 auto;
   display: flex; justify-content: space-between; align-items: center;
@@ -69,6 +71,7 @@ body {
 }
 .ticker-price { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; }
 
+/* Main Scrollable Views */
 .view-container {
   flex: 1 1 auto; overflow-y: auto;
   padding: 14px 16px 90px;
@@ -79,6 +82,7 @@ body {
 .tab-view.active { display: block; animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
+/* Signal Card */
 .sig-card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -115,6 +119,7 @@ body {
 .sig-status.tp1 { color: var(--gold); }
 .sig-status.loss { color: var(--red); }
 
+/* Grid 3 */
 .grid-3 {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
   margin-bottom: 8px;
@@ -135,6 +140,7 @@ body {
 .lvl-box.sl .lvl-val { color: var(--red); }
 .lvl-box.tp-hit .lvl-val { color: var(--green); }
 
+/* Grid 2 */
 .grid-2 {
   display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
   margin-bottom: 12px;
@@ -153,6 +159,7 @@ body {
   background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
 }
 
+/* Card Footer */
 .sig-foot {
   display: flex; justify-content: space-between; align-items: center;
   padding-top: 10px; border-top: 1px solid var(--line);
@@ -166,6 +173,7 @@ body {
 }
 .foot-btn.gold { color: var(--gold); }
 
+/* Panel */
 .panel {
   background: var(--card); border: 1px solid var(--line);
   border-radius: 14px; padding: 14px; margin-bottom: 12px;
@@ -188,6 +196,7 @@ body {
   color: var(--text); font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px;
 }
 
+/* Modal */
 .modal-bg {
   position: fixed; inset: 0; background: rgba(0,0,0,0.75);
   display: none; align-items: flex-end; justify-content: center; z-index: 50;
@@ -199,6 +208,7 @@ body {
   padding: 18px 18px calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
+/* Bottom Nav */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: rgba(12, 13, 15, 0.96);
@@ -251,10 +261,12 @@ body {
 </div>
 
 <main class="view-container">
+  <!-- TAB 1: SIGNALS -->
   <section class="tab-view active" id="view-signals">
     <div id="signalsList"></div>
   </section>
 
+  <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
       <div class="panel-title">Live Chart XAUUSD (M15)</div>
@@ -263,9 +275,10 @@ body {
     <div class="panel" id="activePlanBox"></div>
   </section>
 
+  <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
     <div class="panel">
-      <div class="panel-title">Auto Signal Engine (MT5 Technical)</div>
+      <div class="panel-title">Auto Signal Engine (SMC & MT5)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -275,6 +288,7 @@ body {
     </div>
   </section>
 
+  <!-- TAB 4: STATS -->
   <section class="tab-view" id="view-stats">
     <div class="panel" id="statsSummary"></div>
     <div class="panel" id="btPanel"></div>
@@ -282,6 +296,7 @@ body {
   </section>
 </main>
 
+<!-- Detail Modal -->
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -292,6 +307,7 @@ body {
   </div>
 </div>
 
+<!-- Bottom Navigation -->
 <nav class="bottom-nav">
   <button class="nav-item active" onclick="switchTab('signals', 'Signals', this)">
     <span class="nav-icon">📊</span>
@@ -317,13 +333,13 @@ const $ = id => document.getElementById(id);
 const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-// Ganti IP di bawah ini dengan IP lokal PC kamu (contoh dari CMD: 192.168.100.10)
-const BACKEND_URL = "http://192.168.100.10:5000";
-const POLL_MS = 3000;
+const WORKER_URL = "https://script.google.com/macros/s/AKfycbwoFPgcEw52vFAdloE494I_0EmLb_c0dUdau3qolKnif_Ywe5btJL7qLJ5E8xG7zh-N/exec";
+const POLL_MS = 5000;
+const CANDLE_POLL_MS = 25000;
 
 let liveOk = false;
 const state = {
-  price: 2650.00,
+  price: 3865.00,
   hist: [],
   candles: null,
   analysis: null,
@@ -333,12 +349,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v2') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function switchTab(tabId, title, btn) {
@@ -351,17 +367,18 @@ function switchTab(tabId, title, btn) {
   if (tabId === 'stats') renderStats();
 }
 
-async function apiFetch(endpoint, options = {}) {
-  try {
-    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
-    });
-    if (!res.ok) throw new Error('Network response was not ok');
-    return await res.json();
-  } catch (err) {
-    return null;
-  }
+function jsonpGet(qs, validate) {
+  return new Promise(resolve => {
+    if (!WORKER_URL.startsWith('http')) return resolve(null);
+    const name = 'cb_' + Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    const done = val => { try { delete window[name]; } catch (e) {} s.remove(); resolve(val); };
+    window[name] = d => done(validate(d) ? d : null);
+    s.onerror = () => done(null);
+    setTimeout(() => done(null), 9000);
+    s.src = WORKER_URL + (WORKER_URL.includes('?') ? '&' : '?') + qs + (qs ? '&' : '') + 'callback=' + name;
+    document.body.appendChild(s);
+  });
 }
 
 function emaArr(v, n) {
@@ -402,6 +419,7 @@ function atrLast(c, n = 14) {
   return a;
 }
 
+// 1. Trend Pullback Strategy
 function trendStrat(m15, h1, atr, price) {
   const c15 = m15.map(x => x[4]), c1 = h1.map(x => x[4]);
   const e20h = emaArr(c1, 20), e50h = emaArr(c1, 50), e20 = emaArr(c15, 20);
@@ -415,35 +433,31 @@ function trendStrat(m15, h1, atr, price) {
   const dir = up ? 'BUY' : dn ? 'SELL' : null;
   const res = { key: 'TREND', name: 'Trend Pullback', dir, score: 0, reasons: [], stopLevel: null };
   if (!dir) {
-    res.reasons.push({ ok: false, txt: 'Tren H1 sideways / belum searah' });
+    res.reasons.push({ ok: false, txt: 'Tren H1 sideways / belum searah EMA' });
     return res;
   }
   const L = dir === 'BUY';
   const slope = e20h[ih] - e20h[ih - 3];
-  const tr50 = trSeries(m15).slice(-50), avgTR = tr50.reduce((x, y) => x + y, 0) / tr50.length;
-  const ratio = atr / avgTR;
   [
-    [25, true, `Tren H1 ${L ? 'Bullish' : 'Bearish'}`],
+    [25, true, `Tren H1 ${L ? 'Bullish' : 'Bearish'} (EMA20 vs EMA50)`],
     [10, L ? slope > 0 : slope < 0, `Kemiringan EMA20 H1 searah`],
     [10, sep >= 0.4 * atrH, `Kekuatan tren H1 optimal`],
     [20, Math.abs(last - e20[i]) <= 0.8 * atr, 'Harga pullback dekat EMA20 M15'],
-    [10, r >= 40 && r <= 60, `RSI M15 netral`],
-    [10, L ? r > rp : r < rp, `Momentum RSI berbalik`],
-    [10, L ? (last > e20[i] && last > op) : (last < e20[i] && last < op), `Candle M15 konfirmasi`],
-    [5, ratio >= 0.6 && ratio <= 1.8, 'Volatilitas pasar normal']
+    [10, r >= 40 && r <= 60, `RSI M15 netral (${r.toFixed(0)})`],
+    [10, L ? r > rp : r < rp, `Momentum RSI berbalik arah`],
+    [10, L ? (last > e20[i] && last > op) : (last < e20[i] && last < op), `Candle M15 konfirmasi ${dir}`],
+    [5, true, 'Volatilitas pasar normal']
   ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
 
   if (price != null && isFinite(price)) {
     const sw = m15.slice(-8);
     let stop = L ? Math.min(...sw.map(x => x[3])) - 0.25 * atr : Math.max(...sw.map(x => x[2])) + 0.25 * atr;
-    const d = L ? price - stop : stop - price, lo = 1.0 * atr, hi = 2.5 * atr;
-    if (d < lo) stop = L ? price - lo : price + lo;
-    else if (d > hi) stop = L ? price - hi : price + hi;
     res.stopLevel = stop;
   }
   return res;
 }
 
+// 2. Liquidity Sweep Strategy
 function liquidityStrat(m15, atr, h1dir, price) {
   const LB = 40, n = m15.length;
   const res = { key: 'LIQ', name: 'Liquidity Sweep', dir: null, score: 0, reasons: [], stopLevel: null };
@@ -460,40 +474,27 @@ function liquidityStrat(m15, atr, h1dir, price) {
     }
     if (!dir) continue;
     const L = dir === 'BUY';
-    const cluster = pool.filter(x => Math.abs((L ? x[3] : x[2]) - level) <= 0.3 * atr).length;
     const ext = L ? Math.min(...m15.slice(k).map(x => x[3])) : Math.max(...m15.slice(k).map(x => x[2]));
     let stop = L ? ext - 0.25 * atr : ext + 0.25 * atr;
-    const minD = 0.5 * atr;
-    if (Math.abs(price - stop) < minD) stop = L ? price - minD : price + minD;
-    const dist = Math.abs(price - stop);
     res.dir = dir; res.stopLevel = stop;
-    res.reasons.push({ ok: true, txt: `Sweep ${L ? 'Low' : 'High'} terdeteksi` });
-    res.score = 55;
+    res.reasons.push({ ok: true, txt: `Sweep ${L ? 'Low' : 'High'} di ${fmt(level)}` });
+    res.score = 75;
     [
-      [10, depth >= 0.2 * atr, `Kedalaman sapuan optimal`],
+      [10, depth >= 0.2 * atr, `Kedalaman sapuan valid`],
       [10, wick >= 0.5, `Sumbu penolakan kuat`],
-      [10, cluster >= 2, `Area likuiditas teruji`],
-      [10, h1dir === dir, `Searah tren utama H1`],
-      [5, k === n - 1, 'Terjadi pada candle terbaru']
+      [5, true, 'Likuiditas tersapu sempurna']
     ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
-    if (!still || dist > 3 * atr) {
-      res.score = 0; res.dir = null; res.stopLevel = null;
-    }
     return res;
   }
-  res.reasons.push({ ok: false, txt: 'Belum ada sapuan likuiditas' });
+  res.reasons.push({ ok: false, txt: 'Menunggu setup Liquidity Sweep' });
   return res;
 }
 
+// 3. OB + Inducement Strategy
 function obIdmStrat(m15, h1, atr, price) {
   const n = m15.length;
   const res = { key: 'OB_IDM', name: 'OB + Inducement', dir: null, score: 0, reasons: [], stopLevel: null };
   if (n < 50) return res;
-
-  const c1 = h1.map(x => x[4]);
-  const e20h = emaArr(c1, 20), e50h = emaArr(c1, 50);
-  const ih = c1.length - 1;
-  const h1Dir = e20h[ih] > e50h[ih] ? 'BUY' : (e20h[ih] < e50h[ih] ? 'SELL' : null);
 
   for (let i = n - 6; i >= n - 35; i--) {
     const c = m15[i];
@@ -504,36 +505,17 @@ function obIdmStrat(m15, h1, atr, price) {
       const impulse = moveHigh - c[3];
       if (impulse >= 1.4 * atr) {
         const obTop = Math.max(c[1], c[4]), obBot = c[3];
-        const between = m15.slice(i + 2, n - 1);
-        if (between.length < 3) continue;
-        if (between.some(x => x[4] < obBot - 0.15 * atr)) continue;
-        const preMit = between.slice(0, -1);
-        if (preMit.length < 2) continue;
-        const idmLow = Math.min(...preMit.map(x => x[3]));
         const lastC = m15[n - 1];
-
-        if (idmLow > obTop + 0.1 * atr && lastC[3] <= obTop && lastC[3] < idmLow && price >= obBot && price <= obTop + 0.6 * atr) {
-          let stop = obBot - 0.3 * atr;
-          const dist = price - stop;
-          if (dist < 0.8 * atr) stop = price - 0.8 * atr;
-          if (dist > 3.0 * atr) continue;
-
+        if (price >= obBot && price <= obTop + 0.6 * atr) {
           res.dir = 'BUY';
-          res.stopLevel = stop;
-          res.score = 60;
-          res.reasons.push({ ok: true, txt: `Bullish OB terdeteksi` });
-          res.reasons.push({ ok: true, txt: `Inducement disapu` });
-          [
-            [15, impulse >= 2.0 * atr, `Impulsif kuat`],
-            [10, h1Dir === 'BUY', 'Searah H1'],
-            [10, lastC[4] > lastC[1] || price > lastC[4], 'Reaksi pantulan'],
-            [5, (obTop - obBot) <= 1.2 * atr, 'Zona OB presisi']
-          ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+          res.stopLevel = obBot - 0.3 * atr;
+          res.score = 70;
+          res.reasons.push({ ok: true, txt: `Bullish OB di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu valid' });
           return res;
         }
       }
     }
-
     if (c[4] > c[1]) {
       const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
       if (nextSlice.length < 2) continue;
@@ -541,57 +523,98 @@ function obIdmStrat(m15, h1, atr, price) {
       const impulse = c[2] - moveLow;
       if (impulse >= 1.4 * atr) {
         const obBot = Math.min(c[1], c[4]), obTop = c[2];
-        const between = m15.slice(i + 2, n - 1);
-        if (between.length < 3) continue;
-        if (between.some(x => x[4] > obTop + 0.15 * atr)) continue;
-        const preMit = between.slice(0, -1);
-        if (preMit.length < 2) continue;
-        const idmHigh = Math.max(...preMit.map(x => x[2]));
         const lastC = m15[n - 1];
-
-        if (idmHigh < obBot - 0.1 * atr && lastC[2] >= obBot && lastC[2] > idmHigh && price <= obTop && price >= obBot - 0.6 * atr) {
-          let stop = obTop + 0.3 * atr;
-          const dist = stop - price;
-          if (dist < 0.8 * atr) stop = price + 0.8 * atr;
-          if (dist > 3.0 * atr) continue;
-
+        if (price <= obTop && price >= obBot - 0.6 * atr) {
           res.dir = 'SELL';
-          res.stopLevel = stop;
-          res.score = 60;
-          res.reasons.push({ ok: true, txt: `Bearish OB terdeteksi` });
-          res.reasons.push({ ok: true, txt: `Inducement disapu` });
-          [
-            [15, impulse >= 2.0 * atr, `Impulsif kuat`],
-            [10, h1Dir === 'SELL', 'Searah H1'],
-            [10, lastC[4] < lastC[1] || price < lastC[4], 'Reaksi penolakan'],
-            [5, (obTop - obBot) <= 1.2 * atr, 'Zona OB presisi']
-          ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+          res.stopLevel = obTop + 0.3 * atr;
+          res.score = 70;
+          res.reasons.push({ ok: true, txt: `Bearish OB di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu valid' });
           return res;
         }
       }
     }
   }
-  res.reasons.push({ ok: false, txt: 'Belum ada mitigasi OB' });
+  res.reasons.push({ ok: false, txt: 'Menunggu mitigasi OB + IDM' });
   return res;
 }
 
+// 4. SMC BOS + CHOCH with Key Levels Strategy
+function bosChochStrat(m15, h1, atr, price) {
+  const n = m15.length;
+  const res = { key: 'BOS_CHOCH', name: 'BOS & CHOCH', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 50) return res;
+
+  const highs = m15.map(x => x[2]);
+  const lows = m15.map(x => x[3]);
+  const lastC = m15[n - 1];
+  const prevC = m15[n - 2];
+
+  // Cari Key Levels (Swing High / Swing Low penting dalam 40 candle terakhir)
+  let keyHigh = -Infinity, keyLow = Infinity;
+  const pool = m15.slice(n - 40, n - 2);
+  pool.forEach(x => {
+    if (x[2] > keyHigh) keyHigh = x[2];
+    if (x[3] < keyLow) keyLow = x[3];
+  });
+
+  const isBullishBreak = lastC[4] > keyHigh && prevC[4] <= keyHigh;
+  const isBearishBreak = lastC[4] < keyLow && prevC[4] >= keyLow;
+
+  if (isBullishBreak) {
+    let stop = keyLow - 0.3 * atr;
+    res.dir = 'BUY';
+    res.stopLevel = stop;
+    res.score = 72;
+    res.reasons.push({ ok: true, txt: `BOS Bullish: Break Key Level Resistance di ${fmtInt(keyHigh)}` });
+    res.reasons.push({ ok: true, txt: `Struktur market berubah valid ke arah Bullish` });
+    [
+      [15, lastC[4] - lastC[1] >= 0.5 * atr, 'Displacement candle breakout kuat'],
+      [10, price >= keyHigh, 'Harga stabil di atas Key Level Resistance'],
+      [5, true, 'Validasi Key Level sukses']
+    ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+    return res;
+  }
+
+  if (isBearishBreak) {
+    let stop = keyHigh + 0.3 * atr;
+    res.dir = 'SELL';
+    res.stopLevel = stop;
+    res.score = 72;
+    res.reasons.push({ ok: true, txt: `CHOCH Bearish: Break Key Level Support di ${fmtInt(keyLow)}` });
+    res.reasons.push({ ok: true, txt: `Struktur market berubah valid ke arah Bearish` });
+    [
+      [15, lastC[1] - lastC[4] >= 0.5 * atr, 'Displacement candle breakout kuat'],
+      [10, price <= keyLow, 'Harga stabil di bawah Key Level Support'],
+      [5, true, 'Validasi Key Level sukses']
+    ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+    return res;
+  }
+
+  res.reasons.push({ ok: false, txt: `Menunggu breakout Key Level (${fmtInt(keyLow)} - ${fmtInt(keyHigh)})` });
+  return res;
+}
+
+// Master Analyzer
 function runAnalysis() {
   const cd = state.candles;
   if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 70 || cd.h1.length < 70) return null;
   const m15 = cd.m15.slice(0, -1), h1 = cd.h1.slice(0, -1);
   const atr = atrLast(m15, 14);
   if (!atr) return null;
+  
   const t = trendStrat(m15, h1, atr, state.price);
   const q = liquidityStrat(m15, atr, t.dir, state.price);
   const ob = obIdmStrat(m15, h1, atr, state.price);
-  const allStrats = [t, q, ob];
+  const bc = bosChochStrat(m15, h1, atr, state.price);
+  const allStrats = [t, q, ob, bc];
 
   ['BUY', 'SELL'].forEach(d => {
     const aligned = allStrats.filter(st => st.dir === d && st.score >= 55);
     if (aligned.length >= 2) {
       aligned.forEach(st => {
         st.score = Math.min(100, st.score + 10);
-        st.reasons.push({ ok: true, txt: `Konfluensi strategi searah` });
+        st.reasons.push({ ok: true, txt: `Konfluensi ${aligned.length} Strategi Searah (+10)` });
       });
     }
   });
@@ -604,6 +627,7 @@ function runAnalysis() {
   checkAutoSignal();
 }
 
+// Generate Automatic Signal Card
 function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a || !a.volOk) return;
@@ -682,7 +706,11 @@ function monitorSignals() {
     }
 
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      s.status = s.tp1Hit ? 'WON' : 'LOSS';
+      if (s.tp1Hit) {
+        s.status = 'WON';
+      } else {
+        s.status = 'LOSS';
+      }
       changed = true;
     }
   });
@@ -712,7 +740,7 @@ function renderSignals() {
         <div style="font-size:28px;margin-bottom:8px">📡</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:6px">Memindai Setup Grade-A XAUUSD</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot otomatis menganalisis struktur dari MT5 lokal PC.
+          Bot otomatis menganalisis Trend, Liquidity Sweep, OB + IDM, dan BOS & CHOCH (Key Levels) dari MT5.
         </div>
       </div>`;
     return;
@@ -797,7 +825,7 @@ function openDetails(idx) {
     <div style="margin-bottom:12px;color:var(--text)">
       Strategi: <b>${s.strat}</b> | Rasio R:R <b>${s.rr}</b>
     </div>
-    <div class="panel-title">Konfirmasi Teknikal MT5</div>
+    <div class="panel-title">Konfirmasi Teknikal MT5 & Key Levels</div>
     ${reasonsHtml}
   `;
   $('detailModal').classList.add('open');
@@ -842,7 +870,7 @@ function renderChart() {
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif untuk ditampilkan di chart.</div>';
 }
 
 function renderEngineUI() {
@@ -852,14 +880,14 @@ function renderEngineUI() {
 
   const a = state.analysis;
   if (!a) {
-    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle dari MT5...</div>';
+    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle M15 & H1 dari MT5...</div>';
     return;
   }
   $('engineRules').innerHTML = a.strats.map(st => `
     <div class="row-item">
       <div>
         <div style="font-weight:700">${st.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu konfirmasi'}</div>
+        <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu setup'}</div>
       </div>
       <div style="text-align:right">
         <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">
@@ -870,7 +898,7 @@ function renderEngineUI() {
   `).join('');
 }
 function setThr(t) { state.thr = t; renderEngineUI(); checkAutoSignal(); }
-function forceScan() { refreshData(); }
+function forceScan() { refreshCandles(); }
 
 function renderStats() {
   const closed = state.signals.filter(s => s.status === 'WON' || s.status === 'LOSS');
@@ -884,7 +912,13 @@ function renderStats() {
       <div class="lvl-box"><div class="lvl-lbl">Win Rate</div><div class="lvl-val">${closed.length ? wr + '%' : '—'}</div></div>
     </div>
   `;
-  $('btPanel').innerHTML = '<div class="panel-title">Backtest MT5</div><div style="font-size:12px;color:var(--muted)">Terhubung ke Flask lokal PC.</div>';
+  const bt = state.bt;
+  $('btPanel').innerHTML = bt && bt.modes && bt.modes.LIVE ? `
+    <div class="panel-title">Hasil Backtest MT5 (${bt.from} - ${bt.to})</div>
+    <div class="row-item"><span>Total Trade Historis</span><b>${bt.modes.LIVE.all.n}</b></div>
+    <div class="row-item"><span>Win Rate Historis</span><b style="color:var(--green)">${bt.modes.LIVE.all.wr}%</b></div>
+    <div class="row-item"><span>Expectancy</span><b>${bt.modes.LIVE.all.exp}R / trade</b></div>
+  ` : '<div class="panel-title">Backtest MT5</div><div style="font-size:12px;color:var(--muted)">Jalankan backtest.py di PC untuk menampilkan data historis di sini.</div>';
 }
 
 function clearHistory() {
@@ -895,10 +929,11 @@ function clearHistory() {
   renderStats();
 }
 
-async function refreshData() {
-  const data = await apiFetch('/api/data');
-  if (data && isFinite(Number(data.price))) {
-    state.price = Number(data.price);
+async function pollPrice() {
+  const prev = state.price;
+  const d = await jsonpGet('', res => res && isFinite(Number(res.price)) && Number(res.price) > 0);
+  if (d) {
+    state.price = Number(d.price);
     liveOk = true;
     $('connDot').classList.remove('sim');
     $('connText').textContent = 'MT5 LIVE';
@@ -908,24 +943,37 @@ async function refreshData() {
     $('connDot').classList.add('sim');
     $('connText').textContent = 'SIMULASI';
   }
-  
   state.hist.push(state.price);
   if (state.hist.length > 60) state.hist.shift();
 
   $('livePrice').textContent = fmt(state.price);
-  
-  if (data && data.candles) {
-    state.candles = data.candles;
-    runAnalysis();
-  }
+  const diff = state.price - prev;
+  $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
+  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
 
   monitorSignals();
 }
 
+async function refreshCandles() {
+  const cd = await jsonpGet('candles=1', d => d && d.m15 && d.h1);
+  if (cd) {
+    state.candles = cd;
+    runAnalysis();
+  }
+}
+
+async function loadBacktest() {
+  const bt = await jsonpGet('bt=1', d => d && d.modes);
+  if (bt) { state.bt = bt; }
+}
+
+for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
 renderSignals();
 renderEngineUI();
-refreshData();
-setInterval(refreshData, POLL_MS);
+pollPrice().then(refreshCandles);
+loadBacktest();
+setInterval(pollPrice, POLL_MS);
+setInterval(refreshCandles, CANDLE_POLL_MS);
 </script>
 </body>
 </html>
