@@ -283,7 +283,7 @@ body {
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Pengaturan Ambang Skor (Grade-A Minimal 80%)</div>
+      <div class="panel-title">Pengaturan Ambang Skor (Grade-A)</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="thrBtns"></div>
     </div>
   </section>
@@ -343,18 +343,18 @@ const state = {
   hist: [],
   candles: null,
   analysis: null,
-  thr: 80, // Default threshold dinaikkan ke 80%
+  thr: 75,
   signals: [],
   bt: null
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v3') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v2') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v3', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function switchTab(tabId, title, btn) {
@@ -550,6 +550,7 @@ function bosChochStrat(m15, h1, atr, price) {
   const lastC = m15[n - 1];
   const prevC = m15[n - 2];
 
+  // Cari Key Levels (Swing High / Swing Low penting dalam 40 candle terakhir)
   let keyHigh = -Infinity, keyLow = Infinity;
   const pool = m15.slice(n - 40, n - 2);
   pool.forEach(x => {
@@ -873,9 +874,7 @@ function renderChart() {
 }
 
 function renderEngineUI() {
-  // Pilihan threshold diperbarui mulai dari 80%, 85%, 90%, hingga 95%
-  const thresholds = [80, 85, 90, 95];
-  $('thrBtns').innerHTML = thresholds.map(t =>
+  $('thrBtns').innerHTML = [70, 75, 80, 85].map(t =>
     `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
   ).join('');
 
@@ -950,7 +949,7 @@ async function pollPrice() {
   $('livePrice').textContent = fmt(state.price);
   const diff = state.price - prev;
   $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
-  $('priceChg'].style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
 
   monitorSignals();
 }
