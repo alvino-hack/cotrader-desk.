@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Alchemist Advanced · XAUUSD</title>
+<title>Signals · Ekebilas Bot</title>
 <style>
 :root {
   --bg: #08090a;
@@ -27,7 +27,9 @@
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
+  -ms-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
 }
 html, body {
   margin: 0; padding: 0; height: 100%;
@@ -47,7 +49,7 @@ body {
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
-.topbar h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+.topbar h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .live-badge {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 600; color: var(--muted);
@@ -69,7 +71,7 @@ body {
 }
 .ticker-price { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; }
 
-/* Main Views */
+/* Main Scrollable Views */
 .view-container {
   flex: 1 1 auto; overflow-y: auto;
   padding: 14px 16px 90px;
@@ -99,15 +101,25 @@ body {
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 800; color: #111;
 }
-.sig-pair { font-weight: 800; font-size: 16px; }
+.sig-pair { font-weight: 800; font-size: 16px; letter-spacing: 0.01em; }
 .dir-pill {
   font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
   display: inline-flex; align-items: center; gap: 3px;
 }
 .dir-pill.buy { background: var(--green-bg); color: var(--green); }
 .dir-pill.sell { background: var(--red-bg); color: var(--red); }
-.dir-pill.notrade { background: var(--card-inner); color: var(--muted); border: 1px solid var(--line); }
+.rr-pill {
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  background: var(--card-inner); border: 1px solid var(--line);
+  padding: 3px 7px; border-radius: 6px;
+}
+.sig-status { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.sig-status.active { color: var(--green); }
+.sig-status.won { color: var(--green); }
+.sig-status.tp1 { color: var(--gold); }
+.sig-status.loss { color: var(--red); }
 
+/* Grid 3 */
 .grid-3 {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
   margin-bottom: 8px;
@@ -128,6 +140,7 @@ body {
 .lvl-box.sl .lvl-val { color: var(--red); }
 .lvl-box.tp-hit .lvl-val { color: var(--green); }
 
+/* Grid 2 */
 .grid-2 {
   display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
   margin-bottom: 12px;
@@ -146,6 +159,7 @@ body {
   background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
 }
 
+/* Card Footer */
 .sig-foot {
   display: flex; justify-content: space-between; align-items: center;
   padding-top: 10px; border-top: 1px solid var(--line);
@@ -155,24 +169,31 @@ body {
 .foot-btn {
   background: none; border: none; color: var(--text);
   font-family: inherit; font-size: 12px; font-weight: 600;
-  cursor: pointer; padding: 0;
+  cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px;
 }
+.foot-btn.gold { color: var(--gold); }
 
-/* Panel & Details */
+/* Panel */
 .panel {
   background: var(--card); border: 1px solid var(--line);
   border-radius: 14px; padding: 14px; margin-bottom: 12px;
 }
-.panel-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.panel-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.chart-svg { width: 100%; height: 210px; display: block; background: var(--card-inner); border-radius: 10px; }
 .row-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px;
+  padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 13px;
 }
 .row-item:last-child { border-bottom: none; }
 .btn-action {
   width: 100%; padding: 12px; border-radius: 10px; border: none;
   background: var(--gold); color: #111; font-weight: 700; font-size: 13px;
   cursor: pointer; margin-top: 8px;
+}
+.btn-sec {
+  width: 100%; padding: 10px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card-inner);
+  color: var(--text); font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px;
 }
 
 /* Modal */
@@ -183,14 +204,16 @@ body {
 .modal-bg.open { display: flex; }
 .modal-sheet {
   width: 100%; max-width: 480px; max-height: 85vh; overflow-y: auto;
-  background: var(--card); border-top: 1px solid var(--line);
-  border-radius: 20px 20px 0 0; padding: 18px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: var(--card);
+  border-top: 1px solid var(--line); border-radius: 20px 20px 0 0;
+  padding: 18px 18px calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Bottom Nav */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
-  background: rgba(12, 13, 15, 0.96); backdrop-filter: blur(10px);
+  background: rgba(12, 13, 15, 0.96);
+  backdrop-filter: blur(10px);
   border-top: 1px solid var(--line);
   display: grid; grid-template-columns: repeat(4, 1fr);
   padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
@@ -210,12 +233,15 @@ body {
   font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 999px;
 }
 </style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#08090a">
+<link rel="icon" href="icon-192.png" type="image/png">
 </head>
 <body>
 
 <header class="topbar">
   <div>
-    <h1 id="pageTitle" style="margin-bottom:2px;">Alchemist Signals</h1>
+    <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
     <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX</span>
   </div>
   <div class="live-badge">
@@ -227,7 +253,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px">M15 · H1 · H4</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · H1</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -241,23 +267,24 @@ body {
     <div id="signalsList"></div>
   </section>
 
-  <!-- TAB 2: ALCHEMIST MATRIX -->
+  <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
-      <div class="panel-title">Alchemist Advanced Matrix Dashboard</div>
-      <div id="matrixBody"></div>
+      <div class="panel-title">Live Chart XAUUSD (M15)</div>
+      <svg class="chart-svg" id="chartSvg" viewBox="0 0 320 200" preserveAspectRatio="none"></svg>
     </div>
+    <div class="panel" id="activePlanBox"></div>
   </section>
 
-  <!-- TAB 3: ENGINE & THRESHOLD -->
+  <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
     <div class="panel">
-      <div class="panel-title">Institutional Confluence Engine (0–100)</div>
+      <div class="panel-title">Auto Signal Engine (Alchemist & SMC)</div>
       <div id="engineRules"></div>
-      <button class="btn-action" onclick="forceScan()">JALANKAN ANALISIS SEKARANG</button>
+      <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Ambang Skor Minimal (Grade-A ≥ 75 / 80)</div>
+      <div class="panel-title">Pengaturan Ambang Skor (Grade-A ≥ 80%)</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="thrBtns"></div>
     </div>
   </section>
@@ -265,7 +292,8 @@ body {
   <!-- TAB 4: STATS -->
   <section class="tab-view" id="view-stats">
     <div class="panel" id="statsSummary"></div>
-    <button class="btn-action" style="background:var(--card-inner);color:var(--text);border:1px solid var(--line)" onclick="clearHistory()">RESET RIWAYAT ANALISIS</button>
+    <div class="panel" id="btPanel"></div>
+    <button class="btn-sec" onclick="clearHistory()">RESET RIWAYAT SINYAL</button>
   </section>
 </main>
 
@@ -273,7 +301,7 @@ body {
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <b style="font-size:16px" id="modalTitle">Alchemist Detailed Breakdown</b>
+      <b style="font-size:16px" id="modalTitle">Detail Analisis</b>
       <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="modalBody" style="font-size:12px;line-height:1.6;color:var(--muted)"></div>
@@ -282,20 +310,20 @@ body {
 
 <!-- Bottom Navigation -->
 <nav class="bottom-nav">
-  <button class="nav-item active" onclick="switchTab('signals', 'Alchemist Signals', this)">
+  <button class="nav-item active" onclick="switchTab('signals', 'Signals', this)">
     <span class="nav-icon">📊</span>
     <span class="badge-count" id="activeBadge">0</span>
     <span>Signals</span>
   </button>
-  <button class="nav-item" onclick="switchTab('chart', 'Matrix', this)">
-    <span class="nav-icon">🛡️</span>
-    <span>Matrix</span>
+  <button class="nav-item" onclick="switchTab('chart', 'Live Chart', this)">
+    <span class="nav-icon">🕯️</span>
+    <span>Chart</span>
   </button>
-  <button class="nav-item" onclick="switchTab('ai', 'Engine', this)">
+  <button class="nav-item" onclick="switchTab('ai', 'AI Scanner', this)">
     <span class="nav-icon">🤖</span>
-    <span>Engine</span>
+    <span>AI Engine</span>
   </button>
-  <button class="nav-item" onclick="switchTab('stats', 'Stats', this)">
+  <button class="nav-item" onclick="switchTab('stats', 'Performance', this)">
     <span class="nav-icon">📈</span>
     <span>Stats</span>
   </button>
@@ -312,21 +340,22 @@ const CANDLE_POLL_MS = 25000;
 
 let liveOk = false;
 const state = {
-  price: 3876.50,
+  price: 3865.00,
   hist: [],
   candles: null,
   analysis: null,
-  thr: 80, // Default threshold Grade-A
-  signals: []
+  thr: 80, // Minimal Grade-A 80%
+  signals: [],
+  bt: null
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('alchemist_advanced_signals_v1') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v2') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('alchemist_advanced_signals_v1', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function switchTab(tabId, title, btn) {
@@ -335,7 +364,7 @@ function switchTab(tabId, title, btn) {
   $('view-' + tabId).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if (tabId === 'chart') renderMatrix();
+  if (tabId === 'chart') renderChart();
   if (tabId === 'stats') renderStats();
 }
 
@@ -353,6 +382,28 @@ function jsonpGet(qs, validate) {
   });
 }
 
+function emaArr(v, n) {
+  const k = 2 / (n + 1);
+  let e = v[0];
+  const o = [e];
+  for (let i = 1; i < v.length; i++) { e = v[i] * k + e * (1 - k); o.push(e); }
+  return o;
+}
+function rsiSeries(cl, n = 14) {
+  const out = new Array(cl.length).fill(null);
+  if (cl.length <= n) return out;
+  let g = 0, l = 0;
+  for (let i = 1; i <= n; i++) { const d = cl[i] - cl[i - 1]; if (d >= 0) g += d; else l -= d; }
+  g /= n; l /= n;
+  out[n] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  for (let i = n + 1; i < cl.length; i++) {
+    const d = cl[i] - cl[i - 1];
+    g = (g * (n - 1) + Math.max(d, 0)) / n;
+    l = (l * (n - 1) + Math.max(-d, 0)) / n;
+    out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  }
+  return out;
+}
 function trSeries(c) {
   const tr = [];
   for (let i = 1; i < c.length; i++) {
@@ -369,110 +420,345 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// ==========================================
-// ALCHEMIST ADVANCED CONFLUENCE ENGINE
-// ==========================================
-function runAlchemistAnalysis() {
-  const cd = state.candles;
-  if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 50) return;
-  const m15 = cd.m15.slice(0, -1);
-  const atr = atrLast(m15, 14) || 5.0;
-  const price = state.price;
+// 0. ALCHEMIST ADVANCED STRATEGY (ICT/SMC Institutional Confluence)
+function alchemistStrat(m15, h1, atr, price) {
+  const n = m15.length;
+  const res = { key: 'ALCHEMIST', name: 'Alchemist Advanced', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 50 || !h1 || h1.length < 30) return res;
 
-  // 1. Premium & Discount (Equilibrium)
-  const highs = m15.slice(-40).map(x => x[2]);
-  const lows = m15.slice(-40).map(x => x[3]);
-  const hh = Math.max(...highs), ll = Math.min(...lows);
-  const eq = (hh + ll) / 2;
-  const premiumDiscount = price > eq ? "PREMIUM" : price < ll ? "DISCOUNT" : "EQUILIBRIUM";
+  // 1. Dealing Range & Premium / Discount (Equilibrium 50%)
+  const rangeSlice = m15.slice(-48);
+  const rangeHigh = Math.max(...rangeSlice.map(x => x[2]));
+  const rangeLow = Math.min(...rangeSlice.map(x => x[3]));
+  const eq = (rangeHigh + rangeLow) / 2;
+  const rangeSpan = Math.max(rangeHigh - rangeLow, 1e-9);
+  const inPremium = price > eq;
+  const inDiscount = price < eq;
 
-  // 2. Liquidity & Turtle Soup check
-  const prevHigh = Math.max(...m15.slice(-20, -2).map(x => x[2]));
-  const prevLow = Math.min(...m15.slice(-20, -2).map(x => x[3]));
-  let turtleSoup = "None";
-  let tsDir = null;
-  if (price > prevHigh) {
-    turtleSoup = "Turtle Soup High Sweep (Potential Bearish Reversal)";
-    tsDir = "SELL";
-  } else if (price < prevLow) {
-    turtleSoup = "Turtle Soup Low Sweep (Potential Bullish Reversal)";
-    tsDir = "BUY";
+  // 2. HTF Bias (H1 Structure)
+  const h1Closes = h1.map(x => x[4]);
+  const e20h = emaArr(h1Closes, 20);
+  const h1Bull = h1Closes[h1Closes.length - 1] > e20h[e20h.length - 1];
+  const h1Bear = h1Closes[h1Closes.length - 1] < e20h[e20h.length - 1];
+
+  // 3. Liquidity Sweep / Turtle Soup (BSL & SSL)
+  const pool = m15.slice(-25, -2);
+  const bsl = Math.max(...pool.map(x => x[2]));
+  const ssl = Math.min(...pool.map(x => x[3]));
+  const lastC = m15[n - 1];
+  const prevC = m15[n - 2];
+
+  const highSweep = (lastC[2] > bsl && lastC[4] < bsl) || (prevC[2] > bsl && lastC[4] < bsl);
+  const lowSweep = (lastC[3] < ssl && lastC[4] > ssl) || (prevC[3] < ssl && lastC[4] > ssl);
+
+  // 4. CISD (Change in State of Delivery) & Displacement
+  const bodySize = Math.abs(lastC[4] - lastC[1]);
+  const prevBody = Math.abs(prevC[4] - prevC[1]);
+  const hasDisplacement = bodySize >= 0.6 * atr && bodySize > prevBody;
+  const bullishCISD = hasDisplacement && lastC[4] > prevC[2] && prevC[4] < prevC[1];
+  const bearishCISD = hasDisplacement && lastC[4] < prevC[3] && prevC[4] > prevC[1];
+
+  // 5. OTE (Optimal Trade Entry Fibonacci 0.62 - 0.79)
+  const fibRetrace = inDiscount ? (rangeHigh - price) / rangeSpan : (price - rangeLow) / rangeSpan;
+  const inOTE = fibRetrace >= 0.618 && fibRetrace <= 0.79;
+
+  // 6. Fair Value Gap (FVG) & Order Block Confluence
+  let hasBullFVG = false, hasBearFVG = false;
+  for (let i = n - 3; i >= n - 8; i--) {
+    if (m15[i][3] > m15[i - 2][2]) hasBullFVG = true;
+    if (m15[i][2] < m15[i - 2][3]) hasBearFVG = true;
   }
 
-  // 3. POI & Order Block Check
-  const lastC = m15[m15.length - 1];
-  const isBullOB = lastC[4] < lastC[1];
-  const poiDesc = isBullOB ? "Mitigated Bullish Order Block" : "Mitigated Bearish Order Block";
-  const inferredDir = tsDir || (price > eq ? "SELL" : "BUY");
+  // Evaluasi BUY Setup Alchemist
+  if (inDiscount && (lowSweep || bullishCISD || (h1Bull && inOTE))) {
+    res.dir = 'BUY';
+    res.stopLevel = Math.min(ssl, lastC[3], prevC[3]) - 0.35 * atr;
+    let pts = 30; // Base structure + Discount
+    res.reasons.push({ ok: true, txt: `Premium/Discount: Harga di zona DISCOUNT (< ${fmtInt(eq)})` });
 
-  // 4. Scoring Confluence System (0–100)
-  let score = 55; // Base structural baseline
-  if (turtleSoup !== "None") score += 15;
-  if ((inferredDir === "BUY" && premiumDiscount === "DISCOUNT") || (inferredDir === "SELL" && premiumDiscount === "PREMIUM")) score += 15;
-  if (Math.abs(price - eq) > atr) score += 10;
-  score = Math.min(100, score);
+    if (lowSweep) { pts += 20; res.reasons.push({ ok: true, txt: `Turtle Soup / SSL Sweep bersih di ${fmtInt(ssl)}` }); }
+    else { res.reasons.push({ ok: false, txt: 'Belum ada sapuan SSL mayor' }); }
 
-  const isEligible = score >= state.thr;
-  const finalDir = isEligible ? inferredDir : "NO TRADE";
+    if (bullishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bullish CISD & Displacement terkonfirmasi' }); }
+    else if (hasDisplacement && lastC[4] > lastC[1]) { pts += 10; res.reasons.push({ ok: true, txt: 'Displacement bullish aktif' }); }
 
-  state.analysis = {
-    pair: "XAUUSD",
-    currentPrice: price,
-    marketCondition: "Consolidation / Expansion Setup",
-    htfBias: price > eq ? "Bearish Bias (Premium)" : "Bullish Bias (Discount)",
-    marketStructure: "BOS / CHoCH Aligned",
-    liquidity: turtleSoup !== "None" ? turtleSoup : "External Range BSL/SSL Intact",
-    poi: poiDesc,
-    cisd: "Displacement Change in State Valid",
-    ocl: `Opening Price Tested (${fmtInt(m15[m15.length-2][1])})`,
-    turtleSoup: turtleSoup,
-    ote: "Zona OTE 0.705 Fibonacci Tercapai",
-    fvg: "Valid FVG Mitigation Active",
-    orderBlock: isBullOB ? "Bullish OB Refined" : "Bearish OB Refined",
-    amd: "Distribution Phase Active",
-    judas_swing: "London/NY Session Sweep Clean",
-    premiumDiscount: premiumDiscount,
-    finalDirection: finalDir,
-    score: score,
-    rr: "1:3.5",
-    atr: atr
-  };
+    if (inOTE) { pts += 15; res.reasons.push({ ok: true, txt: `OTE Zone tercapai (${(fibRetrace * 100).toFixed(1)}%)` }); }
+    if (hasBullFVG) { pts += 10; res.reasons.push({ ok: true, txt: 'Bullish FVG / POI aktif di area entry' }); }
+    if (h1Bull) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 selaras Bullish' }); }
 
-  renderEngineUI();
-  if (isEligible) checkAutoSignal();
+    res.score = Math.min(100, pts);
+    return res;
+  }
+
+  // Evaluasi SELL Setup Alchemist
+  if (inPremium && (highSweep || bearishCISD || (h1Bear && inOTE))) {
+    res.dir = 'SELL';
+    res.stopLevel = Math.max(bsl, lastC[2], prevC[2]) + 0.35 * atr;
+    let pts = 30; // Base structure + Premium
+    res.reasons.push({ ok: true, txt: `Premium/Discount: Harga di zona PREMIUM (> ${fmtInt(eq)})` });
+
+    if (highSweep) { pts += 20; res.reasons.push({ ok: true, txt: `Turtle Soup / BSL Sweep bersih di ${fmtInt(bsl)}` }); }
+    else { res.reasons.push({ ok: false, txt: 'Belum ada sapuan BSL mayor' }); }
+
+    if (bearishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bearish CISD & Displacement terkonfirmasi' }); }
+    else if (hasDisplacement && lastC[4] < lastC[1]) { pts += 10; res.reasons.push({ ok: true, txt: 'Displacement bearish aktif' }); }
+
+    if (inOTE) { pts += 15; res.reasons.push({ ok: true, txt: `OTE Zone tercapai (${(fibRetrace * 100).toFixed(1)}%)` }); }
+    if (hasBearFVG) { pts += 10; res.reasons.push({ ok: true, txt: 'Bearish FVG / POI aktif di area entry' }); }
+    if (h1Bear) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 selaras Bearish' }); }
+
+    res.score = Math.min(100, pts);
+    return res;
+  }
+
+  res.reasons.push({ ok: false, txt: `NO TRADE: Harga di ${inPremium ? 'Premium' : 'Discount'}, menunggu sweep & CISD valid` });
+  return res;
 }
 
+// 1. Trend Pullback Strategy
+function trendStrat(m15, h1, atr, price) {
+  const c15 = m15.map(x => x[4]), c1 = h1.map(x => x[4]);
+  const e20h = emaArr(c1, 20), e50h = emaArr(c1, 50), e20 = emaArr(c15, 20);
+  const rsi = rsiSeries(c15, 14);
+  const i = c15.length - 1, ih = c1.length - 1;
+  const last = c15[i], op = m15[i][1], r = rsi[i], rp = rsi[i - 1];
+  const atrH = atrLast(h1, 14) || atr * 2;
+  const sep = Math.abs(e20h[ih] - e50h[ih]);
+  const up = e20h[ih] > e50h[ih] && c1[ih] > e50h[ih] && sep >= 0.15 * atrH;
+  const dn = e20h[ih] < e50h[ih] && c1[ih] < e50h[ih] && sep >= 0.15 * atrH;
+  const dir = up ? 'BUY' : dn ? 'SELL' : null;
+  const res = { key: 'TREND', name: 'Trend Pullback', dir, score: 0, reasons: [], stopLevel: null };
+  if (!dir) {
+    res.reasons.push({ ok: false, txt: 'Tren H1 sideways / belum searah EMA' });
+    return res;
+  }
+  const L = dir === 'BUY';
+  const slope = e20h[ih] - e20h[ih - 3];
+  [
+    [25, true, `Tren H1 ${L ? 'Bullish' : 'Bearish'} (EMA20 vs EMA50)`],
+    [10, L ? slope > 0 : slope < 0, `Kemiringan EMA20 H1 searah`],
+    [10, sep >= 0.4 * atrH, `Kekuatan tren H1 optimal`],
+    [20, Math.abs(last - e20[i]) <= 0.8 * atr, 'Harga pullback dekat EMA20 M15'],
+    [10, r >= 40 && r <= 60, `RSI M15 netral (${r.toFixed(0)})`],
+    [10, L ? r > rp : r < rp, `Momentum RSI berbalik arah`],
+    [10, L ? (last > e20[i] && last > op) : (last < e20[i] && last < op), `Candle M15 konfirmasi ${dir}`],
+    [5, true, 'Volatilitas pasar normal']
+  ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+
+  if (price != null && isFinite(price)) {
+    const sw = m15.slice(-8);
+    let stop = L ? Math.min(...sw.map(x => x[3])) - 0.3 * atr : Math.max(...sw.map(x => x[2])) + 0.3 * atr;
+    res.stopLevel = stop;
+  }
+  return res;
+}
+
+// 2. Liquidity Sweep Strategy
+function liquidityStrat(m15, atr, h1dir, price) {
+  const LB = 40, n = m15.length;
+  const res = { key: 'LIQ', name: 'Liquidity Sweep', dir: null, score: 0, reasons: [], stopLevel: null };
+  for (let k = n - 1; k >= n - 2; k--) {
+    const c = m15[k], pool = m15.slice(Math.max(0, k - LB), k);
+    if (pool.length < 20) continue;
+    const poolLow = Math.min(...pool.map(x => x[3])), poolHigh = Math.max(...pool.map(x => x[2]));
+    const op = c[1], hi = c[2], lo = c[3], cl = c[4], rng = Math.max(hi - lo, 1e-9);
+    let dir = null, level = null, depth = 0, wick = 0;
+    if (lo < poolLow && cl > poolLow) {
+      dir = 'BUY'; level = poolLow; depth = poolLow - lo; wick = (Math.min(op, cl) - lo) / rng;
+    } else if (hi > poolHigh && cl < poolHigh) {
+      dir = 'SELL'; level = poolHigh; depth = hi - poolHigh; wick = (hi - Math.max(op, cl)) / rng;
+    }
+    if (!dir) continue;
+    const L = dir === 'BUY';
+    const ext = L ? Math.min(...m15.slice(k).map(x => x[3])) : Math.max(...m15.slice(k).map(x => x[2]));
+    let stop = L ? ext - 0.3 * atr : ext + 0.3 * atr;
+    res.dir = dir; res.stopLevel = stop;
+    res.reasons.push({ ok: true, txt: `Sweep ${L ? 'Low' : 'High'} di ${fmt(level)}` });
+    res.score = 75;
+    [
+      [10, depth >= 0.2 * atr, `Kedalaman sapuan valid`],
+      [10, wick >= 0.5, `Sumbu penolakan kuat`],
+      [5, true, 'Likuiditas tersapu sempurna']
+    ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+    return res;
+  }
+  res.reasons.push({ ok: false, txt: 'Menunggu setup Liquidity Sweep' });
+  return res;
+}
+
+// 3. OB + Inducement Strategy
+function obIdmStrat(m15, h1, atr, price) {
+  const n = m15.length;
+  const res = { key: 'OB_IDM', name: 'OB + Inducement', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 50) return res;
+
+  for (let i = n - 6; i >= n - 35; i--) {
+    const c = m15[i];
+    if (c[4] < c[1]) {
+      const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
+      if (nextSlice.length < 2) continue;
+      const moveHigh = Math.max(...nextSlice.map(x => x[2]));
+      const impulse = moveHigh - c[3];
+      if (impulse >= 1.4 * atr) {
+        const obTop = Math.max(c[1], c[4]), obBot = c[3];
+        if (price >= obBot && price <= obTop + 0.6 * atr) {
+          res.dir = 'BUY';
+          res.stopLevel = obBot - 0.3 * atr;
+          res.score = 70;
+          res.reasons.push({ ok: true, txt: `Bullish OB di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu valid' });
+          return res;
+        }
+      }
+    }
+    if (c[4] > c[1]) {
+      const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
+      if (nextSlice.length < 2) continue;
+      const moveLow = Math.min(...nextSlice.map(x => x[3]));
+      const impulse = c[2] - moveLow;
+      if (impulse >= 1.4 * atr) {
+        const obBot = Math.min(c[1], c[4]), obTop = c[2];
+        if (price <= obTop && price >= obBot - 0.6 * atr) {
+          res.dir = 'SELL';
+          res.stopLevel = obTop + 0.3 * atr;
+          res.score = 70;
+          res.reasons.push({ ok: true, txt: `Bearish OB di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu valid' });
+          return res;
+        }
+      }
+    }
+  }
+  res.reasons.push({ ok: false, txt: 'Menunggu mitigasi OB + IDM' });
+  return res;
+}
+
+// 4. SMC BOS + CHOCH with Key Levels Strategy
+function bosChochStrat(m15, h1, atr, price) {
+  const n = m15.length;
+  const res = { key: 'BOS_CHOCH', name: 'BOS & CHOCH', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 50) return res;
+
+  const lastC = m15[n - 1];
+  const prevC = m15[n - 2];
+
+  let keyHigh = -Infinity, keyLow = Infinity;
+  const pool = m15.slice(n - 40, n - 2);
+  pool.forEach(x => {
+    if (x[2] > keyHigh) keyHigh = x[2];
+    if (x[3] < keyLow) keyLow = x[3];
+  });
+
+  const isBullishBreak = lastC[4] > keyHigh && prevC[4] <= keyHigh;
+  const isBearishBreak = lastC[4] < keyLow && prevC[4] >= keyLow;
+
+  if (isBullishBreak) {
+    let stop = keyLow - 0.3 * atr;
+    res.dir = 'BUY';
+    res.stopLevel = stop;
+    res.score = 72;
+    res.reasons.push({ ok: true, txt: `BOS Bullish: Break Key Level Resistance di ${fmtInt(keyHigh)}` });
+    res.reasons.push({ ok: true, txt: `Struktur market berubah valid ke arah Bullish` });
+    [
+      [15, lastC[4] - lastC[1] >= 0.5 * atr, 'Displacement candle breakout kuat'],
+      [10, price >= keyHigh, 'Harga stabil di atas Key Level Resistance'],
+      [5, true, 'Validasi Key Level sukses']
+    ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+    return res;
+  }
+
+  if (isBearishBreak) {
+    let stop = keyHigh + 0.3 * atr;
+    res.dir = 'SELL';
+    res.stopLevel = stop;
+    res.score = 72;
+    res.reasons.push({ ok: true, txt: `CHOCH Bearish: Break Key Level Support di ${fmtInt(keyLow)}` });
+    res.reasons.push({ ok: true, txt: `Struktur market berubah valid ke arah Bearish` });
+    [
+      [15, lastC[1] - lastC[4] >= 0.5 * atr, 'Displacement candle breakout kuat'],
+      [10, price <= keyLow, 'Harga stabil di bawah Key Level Support'],
+      [5, true, 'Validasi Key Level sukses']
+    ].forEach(([pt, ok, txt]) => { if (ok) res.score += pt; res.reasons.push({ ok, txt }); });
+    return res;
+  }
+
+  res.reasons.push({ ok: false, txt: `Menunggu breakout Key Level (${fmtInt(keyLow)} - ${fmtInt(keyHigh)})` });
+  return res;
+}
+
+// Master Analyzer
+function runAnalysis() {
+  const cd = state.candles;
+  if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 70 || cd.h1.length < 70) return null;
+  const m15 = cd.m15.slice(0, -1), h1 = cd.h1.slice(0, -1);
+  const atr = atrLast(m15, 14);
+  if (!atr) return null;
+  
+  const alc = alchemistStrat(m15, h1, atr, state.price);
+  const t = trendStrat(m15, h1, atr, state.price);
+  const q = liquidityStrat(m15, atr, t.dir, state.price);
+  const ob = obIdmStrat(m15, h1, atr, state.price);
+  const bc = bosChochStrat(m15, h1, atr, state.price);
+  const allStrats = [alc, t, q, ob, bc];
+
+  ['BUY', 'SELL'].forEach(d => {
+    const aligned = allStrats.filter(st => st.dir === d && st.score >= 55);
+    if (aligned.length >= 2) {
+      aligned.forEach(st => {
+        st.score = Math.min(100, st.score + 10);
+        st.reasons.push({ ok: true, txt: `Konfluensi ${aligned.length} Strategi Searah (+10)` });
+      });
+    }
+  });
+
+  const tr50 = trSeries(m15).slice(-50);
+  const vr = atr / (tr50.reduce((x, y) => x + y, 0) / tr50.length);
+  const volOk = vr >= 0.5 && vr <= 2.2;
+  state.analysis = { atr, vr, volOk, strats: allStrats, cT: cd.m15[cd.m15.length - 1][0] };
+  renderEngineUI();
+  checkAutoSignal();
+}
+
+// Generate Automatic Signal Card (Perbaikan Arah SL/TP Buy & Sell)
 function checkAutoSignal() {
   const a = state.analysis;
-  if (!liveOk || !a || a.finalDirection === "NO TRADE") return;
+  if (!liveOk || !a || !a.volOk) return;
+  const valid = a.strats.filter(s => s.dir && s.score >= state.thr).sort((x, y) => y.score - x.score);
+  if (!valid.length) return;
+  if (valid.some(s => s.dir === 'BUY') && valid.some(s => s.dir === 'SELL')) return;
 
-  const openSame = state.signals.find(s => s.status === 'ACTIVE' && (Date.now() - s.createdAt < 30 * 60000));
+  const best = valid[0];
+  const openSame = state.signals.find(s => s.status === 'ACTIVE' && (s.cT === a.cT || (Date.now() - s.createdAt < 30 * 60000)));
   if (openSame) return;
 
   const entry = state.price;
-  const isBuy = a.finalDirection === 'BUY';
-  const risk = a.atr * 1.5;
+  const isBuy = best.dir === 'BUY';
 
-  let sl, tp1, tp2, tp3;
+  let sl, tp1, tp2, tp3, risk;
   if (isBuy) {
-    sl = entry - risk;
-    tp1 = entry + risk;
+    sl = (best.stopLevel != null && best.stopLevel < entry) ? best.stopLevel : (entry - a.atr * 1.5);
+    risk = Math.abs(entry - sl);
+    tp1 = entry + risk * 1.0;
     tp2 = entry + risk * 2.0;
     tp3 = entry + risk * 3.5;
   } else {
-    sl = entry + risk;
-    tp1 = entry - risk;
+    // SELL: SL wajib di atas entry, TP wajib di bawah entry
+    sl = (best.stopLevel != null && best.stopLevel > entry) ? best.stopLevel : (entry + a.atr * 1.5);
+    risk = Math.abs(sl - entry);
+    tp1 = entry - risk * 1.0;
     tp2 = entry - risk * 2.0;
     tp3 = entry - risk * 3.5;
   }
 
+  if (risk <= 0.5 || risk > 4.0 * a.atr) return;
+
   const newSig = {
-    id: 'ALC_' + Date.now(),
+    id: 'SIG_' + Date.now(),
     pair: 'XAUUSD',
     tf: 'M15',
-    dir: a.finalDirection,
-    strat: 'Alchemist Advanced Confluence',
-    score: a.score,
+    dir: best.dir,
+    strat: best.name,
+    score: best.score,
     rr: '1:3.5',
     entry: +entry.toFixed(2),
     sl: +sl.toFixed(2),
@@ -488,7 +774,8 @@ function checkAutoSignal() {
     tp3Hit: false,
     status: 'ACTIVE',
     createdAt: Date.now(),
-    analysis: a
+    cT: a.cT,
+    reasons: best.reasons
   };
 
   state.signals.unshift(newSig);
@@ -522,7 +809,11 @@ function monitorSignals() {
     }
 
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      s.status = s.tp1Hit ? 'WON' : 'LOSS';
+      if (s.tp1Hit) {
+        s.status = 'WON';
+      } else {
+        s.status = 'LOSS';
+      }
       changed = true;
     }
   });
@@ -549,10 +840,10 @@ function renderSignals() {
   if (!state.signals.length) {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
-        <div style="font-size:28px;margin-bottom:8px">⚡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Alchemist Engine Siap</div>
+        <div style="font-size:28px;margin-bottom:8px">📡</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Memindai Setup Grade-A XAUUSD</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Memindai struktur institusional, likuiditas, POI, CISD, dan OTE dengan skor minimal ${state.thr}%.
+          Bot otomatis menganalisis Alchemist Advanced, Trend, Liquidity Sweep, OB + IDM, dan BOS & CHOCH dari MT5.
         </div>
       </div>`;
     return;
@@ -560,9 +851,17 @@ function renderSignals() {
 
   list.innerHTML = state.signals.map((s, idx) => {
     const isBuy = s.dir === 'BUY';
-    const isNoTrade = s.dir === 'NO TRADE';
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    let statusHtml = s.status === 'ACTIVE' ? (s.tp1Hit ? `<span class="sig-status tp1">● 1 TP Hit</span>` : `<span class="sig-status active">● Active</span>`) : (s.status === 'WON' ? `<span class="sig-status won">● Won</span>` : `<span class="sig-status loss">● SL Hit</span>`);
+    let statusHtml = '';
+    if (s.status === 'ACTIVE') {
+      statusHtml = s.tp1Hit
+        ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>`
+        : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`;
+    } else if (s.status === 'WON') {
+      statusHtml = `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>`;
+    } else {
+      statusHtml = `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`;
+    }
 
     return `
     <div class="sig-card">
@@ -570,8 +869,8 @@ function renderSignals() {
         <div class="sig-pair-wrap">
           <div class="gold-icon">Au</div>
           <span class="sig-pair">${s.pair}</span>
-          <span class="dir-pill ${isBuy ? 'buy' : isNoTrade ? 'notrade' : 'sell'}">${s.dir}</span>
-          <span class="rr-pill">Score: ${s.score}%</span>
+          <span class="dir-pill ${isBuy ? 'buy' : 'sell'}">${isBuy ? '↗ BUY' : '↘ SELL'}</span>
+          <span class="rr-pill">${s.rr}</span>
         </div>
         ${statusHtml}
       </div>
@@ -582,22 +881,22 @@ function renderSignals() {
           <div class="lvl-val">${fmtInt(s.entry)}</div>
         </div>
         <div class="lvl-box sl">
-          <div class="lvl-lbl">SL · ${s.slPips}p</div>
+          <div class="lvl-lbl">SL ${s.beMoved ? '· BE' : ''} · ${s.slPips}p</div>
           <div class="lvl-val">${fmtInt(s.sl)}</div>
         </div>
         <div class="lvl-box ${s.tp1Hit ? 'tp-hit' : ''}">
-          <div class="lvl-lbl">TP1 · ${s.tp1Pips}p</div>
+          <div class="lvl-lbl">${s.tp1Hit ? '✓ ' : ''}TP1 · ${s.tp1Pips}p</div>
           <div class="lvl-val">${fmtInt(s.tp1)}</div>
         </div>
       </div>
 
       <div class="grid-2">
         <div class="sub-lvl ${s.tp2Hit ? 'hit' : ''}">
-          <span>TP2 <span class="price">${fmtInt(s.tp2)}</span></span>
+          <span>${s.tp2Hit ? '✓' : '○'} TP2 <span class="price">${fmtInt(s.tp2)}</span></span>
           <span class="pips-tag">${s.tp2Pips}p</span>
         </div>
         <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}">
-          <span>TP3 <span class="price">${fmtInt(s.tp3)}</span></span>
+          <span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmtInt(s.tp3)}</span></span>
           <span class="pips-tag">${s.tp3Pips}p</span>
         </div>
       </div>
@@ -605,79 +904,104 @@ function renderSignals() {
       <div class="sig-foot">
         <span>${s.tf} · ${timeStr} · ${s.strat}</span>
         <div class="foot-actions">
-          <button class="foot-btn" style="color:var(--gold)" onclick="openDetails(${idx})">Format Alchemist ›</button>
+          <button class="foot-btn" onclick="openChartFor(${idx})">📊 Chart</button>
+          <button class="foot-btn" onclick="openDetails(${idx})">Details ›</button>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
+function openChartFor(idx) {
+  const navBtns = document.querySelectorAll('.nav-item');
+  switchTab('chart', 'Live Chart', navBtns[1]);
+}
+
 function openDetails(idx) {
   const s = state.signals[idx];
-  if (!s || !s.analysis) return;
-  const a = s.analysis;
-  $('modalTitle').textContent = `ALCHEMIST ADVANCED ANALYSIS`;
+  if (!s) return;
+  $('modalTitle').textContent = `${s.pair} ${s.dir} · Skor ${s.score}/100`;
+  const reasonsHtml = (s.reasons || []).map(r =>
+    `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`
+  ).join('');
   $('modalBody').innerHTML = `
-    <div style="font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.6; color:var(--text)">
-      <b>PAIR:</b> ${a.pair}<br>
-      <b>CURRENT PRICE:</b> ${a.currentPrice}<br>
-      <b>MARKET CONDITION:</b> ${a.marketCondition}<br>
-      <b>HTF BIAS:</b> ${a.htfBias}<br>
-      <b>MARKET STRUCTURE:</b> ${a.marketStructure}<br><br>
-      <b>LIQUIDITY:</b> ${a.liquidity}<br>
-      <b>POI:</b> ${a.poi}<br>
-      <b>CISD:</b> ${a.cisd}<br>
-      <b>OCL:</b> ${a.ocl}<br>
-      <b>TURTLE SOUP:</b> ${a.turtleSoup}<br>
-      <b>OTE:</b> ${a.ote}<br>
-      <b>FVG:</b> ${a.fvg}<br>
-      <b>ORDER BLOCK:</b> ${a.orderBlock}<br>
-      <b>AMD:</b> ${a.amd}<br>
-      <b>JUDAS SWING:</b> ${a.judas_swing}<br>
-      <b>PREMIUM / DISCOUNT:</b> ${a.premiumDiscount}<br><br>
-      <b>FINAL DIRECTION:</b> <span style="color:${a.finalDirection==='BUY'?'var(--green)':'var(--red)'}">${a.finalDirection}</span><br>
-      <b>ENTRY:</b> ${s.entry}<br>
-      <b>STOP LOSS:</b> ${s.sl}<br>
-      <b>TP1:</b> ${s.tp1} | <b>TP2:</b> ${s.tp2} | <b>TP3:</b> ${s.tp3}<br>
-      <b>CONFLUENCE SCORE:</b> ${a.score}%<br>
-      <b>SETUP QUALITY:</b> ${a.score >= 85 ? 'Very Strong Setup' : 'Valid Setup'}<br>
-      <b>INVALIDATION:</b> ${s.sl}
+    <div style="margin-bottom:12px;color:var(--text)">
+      Strategi: <b>${s.strat}</b> | Rasio R:R <b>${s.rr}</b>
     </div>
+    <div class="panel-title">Konfirmasi Teknikal MT5 & Alchemist Confluence</div>
+    ${reasonsHtml}
   `;
   $('detailModal').classList.add('open');
 }
 function closeModal() { $('detailModal').classList.remove('open'); }
 
-function renderMatrix() {
-  const a = state.analysis;
-  $('matrixBody').innerHTML = a ? `
-    <div class="row-item"><span>HTF Bias</span><b>${a.htfBias}</b></div>
-    <div class="row-item"><span>Market Structure</span><b>${a.marketStructure}</b></div>
-    <div class="row-item"><span>Liquidity Status</span><b>${a.liquidity}</b></div>
-    <div class="row-item"><span>POI Active</span><b>${a.poi}</b></div>
-    <div class="row-item"><span>CISD Status</span><b>${a.cisd}</b></div>
-    <div class="row-item"><span>Turtle Soup</span><b>${a.turtleSoup}</b></div>
-    <div class="row-item"><span>OTE / Fibonacci</span><b>${a.ote}</b></div>
-    <div class="row-item"><span>Premium / Discount</span><b style="color:var(--gold)">${a.premiumDiscount}</b></div>
-    <div class="row-item"><span>Confluence Score</span><b style="color:var(--green)">${a.score}%</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Menunggu sinkronisasi data MT5...</div>';
+function renderChart() {
+  const svg = $('chartSvg');
+  const W = 320, H = 200, N = 24;
+  let candles = [];
+  if (state.candles && state.candles.m15 && state.candles.m15.length >= N) {
+    candles = state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] }));
+  } else {
+    const s = state.hist.slice(-N);
+    candles = s.map((v, i) => ({ o: i ? s[i - 1] : v, c: v, h: v + 0.8, l: v - 0.8 }));
+  }
+  if (!candles.length) return;
+
+  const activeSig = state.signals.find(s => s.status === 'ACTIVE') || state.signals[0];
+  const allVals = [...candles.flatMap(c => [c.h, c.l]), ...(activeSig ? [activeSig.sl, activeSig.tp1, activeSig.entry] : [])];
+  const mn = Math.min(...allVals), mx = Math.max(...allVals), pad = ((mx - mn) * 0.12) || 1;
+  const Y = v => 14 + (H - 28) * (1 - ((v - (mn - pad)) / ((mx + pad) - (mn - pad))));
+  const cw = W / candles.length, bw = cw * 0.56;
+
+  let out = '';
+  if (activeSig) {
+    [[activeSig.tp1, '#10b981', 'TP1'], [activeSig.entry, '#f59e0b', 'ENTRY'], [activeSig.sl, '#ef4444', 'SL']].forEach(([val, col, lbl]) => {
+      out += `<line x1="0" x2="${W}" y1="${Y(val)}" y2="${Y(val)}" stroke="${col}" stroke-width="1" stroke-dasharray="4 3"/>`;
+      out += `<text x="${W - 6}" y="${Y(val) - 3}" fill="${col}" font-size="8" text-anchor="end" font-family="monospace">${lbl} ${fmtInt(val)}</text>`;
+    });
+  }
+  candles.forEach((c, i) => {
+    const x = i * cw + cw / 2, up = c.c >= c.o, col = up ? '#10b981' : '#ef4444';
+    const yo = Y(c.o), yc = Y(c.c), top = Math.min(yo, yc), bh = Math.max(Math.abs(yc - yo), 1.5);
+    out += `<line x1="${x}" x2="${x}" y1="${Y(c.h)}" y2="${Y(c.l)}" stroke="${col}" stroke-width="1"/>`;
+    out += `<rect x="${x - bw / 2}" y="${top}" width="${bw}" height="${bh}" fill="${col}" rx="1"/>`;
+  });
+  svg.innerHTML = out;
+
+  $('activePlanBox').innerHTML = activeSig ? `
+    <div class="panel-title">Setup Terakhir (${activeSig.dir})</div>
+    <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
+    <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
+    <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif untuk ditampilkan di chart.</div>';
 }
 
 function renderEngineUI() {
-  const thresholds = [75, 80, 85, 90];
-  $('thrBtns').innerHTML = thresholds.map(t =>
-    `<button class="btn-sec" style="padding:10px;border-radius:8px;border:1px solid ${state.thr === t ? 'var(--gold)' : 'var(--line)'};background:var(--card-inner);color:${state.thr === t ? 'var(--gold)' : 'var(--text)'};font-weight:700;cursor:pointer" onclick="setThr(${t})">${t}%</button>`
+  // Hanya ambang skor 80%, 85%, 90%, 95%
+  $('thrBtns').innerHTML = [80, 85, 90, 95].map(t =>
+    `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
   ).join('');
 
   const a = state.analysis;
-  $('engineRules').innerHTML = a ? `
-    <div class="row-item"><span>Status Analisis</span><b style="color:${a.finalDirection==='NO TRADE'?'var(--muted)':'var(--green)'}">${a.finalDirection}</b></div>
-    <div class="row-item"><span>Skor Konfluensi Total</span><b>${a.score} / 100</b></div>
-    <div class="row-item"><span>Filter Minimum (Threshold)</span><b>${state.thr}%</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Menunggu pemindaian mesin...</div>';
+  if (!a) {
+    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle M15 & H1 dari MT5...</div>';
+    return;
+  }
+  $('engineRules').innerHTML = a.strats.map(st => `
+    <div class="row-item">
+      <div>
+        <div style="font-weight:700">${st.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu setup'}</div>
+      </div>
+      <div style="text-align:right">
+        <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">
+          Skor ${st.score}%
+        </span>
+      </div>
+    </div>
+  `).join('');
 }
-
-function setThr(t) { state.thr = t; renderEngineUI(); runAlchemistAnalysis(); }
+function setThr(t) { state.thr = t; renderEngineUI(); checkAutoSignal(); }
 function forceScan() { refreshCandles(); }
 
 function renderStats() {
@@ -685,17 +1009,24 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Alchemist Advanced</div>
+    <div class="panel-title">Statistik Sinyal Otomatis</div>
     <div class="grid-3" style="margin-top:8px">
-      <div class="lvl-box"><div class="lvl-lbl">Total</div><div class="lvl-val">${closed.length}</div></div>
+      <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
       <div class="lvl-box"><div class="lvl-lbl">Win Rate</div><div class="lvl-val">${closed.length ? wr + '%' : '—'}</div></div>
     </div>
   `;
+  const bt = state.bt;
+  $('btPanel').innerHTML = bt && bt.modes && bt.modes.LIVE ? `
+    <div class="panel-title">Hasil Backtest MT5 (${bt.from} - ${bt.to})</div>
+    <div class="row-item"><span>Total Trade Historis</span><b>${bt.modes.LIVE.all.n}</b></div>
+    <div class="row-item"><span>Win Rate Historis</span><b style="color:var(--green)">${bt.modes.LIVE.all.wr}%</b></div>
+    <div class="row-item"><span>Expectancy</span><b>${bt.modes.LIVE.all.exp}R / trade</b></div>
+  ` : '<div class="panel-title">Backtest MT5</div><div style="font-size:12px;color:var(--muted)">Jalankan backtest.py di PC untuk menampilkan data historis di sini.</div>';
 }
 
 function clearHistory() {
-  if (!confirm('Reset semua riwayat analisis?')) return;
+  if (!confirm('Hapus semua riwayat sinyal?')) return;
   state.signals = [];
   saveSignals();
   renderSignals();
@@ -711,7 +1042,7 @@ async function pollPrice() {
     $('connDot').classList.remove('sim');
     $('connText').textContent = 'MT5 LIVE';
   } else {
-    state.price += (Math.random() - 0.5) * 2.0;
+    state.price += (Math.random() - 0.5) * 2.5;
     liveOk = false;
     $('connDot').classList.add('sim');
     $('connText').textContent = 'SIMULASI';
@@ -722,7 +1053,7 @@ async function pollPrice() {
   $('livePrice').textContent = fmt(state.price);
   const diff = state.price - prev;
   $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
-  $('priceChg'].style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
 
   monitorSignals();
 }
@@ -731,14 +1062,20 @@ async function refreshCandles() {
   const cd = await jsonpGet('candles=1', d => d && d.m15 && d.h1);
   if (cd) {
     state.candles = cd;
-    runAlchemistAnalysis();
+    runAnalysis();
   }
+}
+
+async function loadBacktest() {
+  const bt = await jsonpGet('bt=1', d => d && d.modes);
+  if (bt) { state.bt = bt; }
 }
 
 for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
 renderSignals();
 renderEngineUI();
 pollPrice().then(refreshCandles);
+loadBacktest();
 setInterval(pollPrice, POLL_MS);
 setInterval(refreshCandles, CANDLE_POLL_MS);
 </script>
