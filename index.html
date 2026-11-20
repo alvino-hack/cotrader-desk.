@@ -344,18 +344,18 @@ const state = {
   hist: [],
   candles: null,
   analysis: null,
-  thr: 80, // Minimal Grade-A 80%
+  thr: 75,
   signals: [],
   bt: null
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v3') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v2') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v3', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function switchTab(tabId, title, btn) {
@@ -420,7 +420,7 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// ALCHEMIST ADVANCED + ZERO FLOATING ENTRY STRATEGY
+// 0. ALCHEMIST ZERO-FLOATING STRATEGY (Institutional Confluence + Zero Drawdown Entry)
 function alchemistStrat(m15, h1, atr, price) {
   const n = m15.length;
   const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Floating', dir: null, score: 0, reasons: [], stopLevel: null };
@@ -456,41 +456,37 @@ function alchemistStrat(m15, h1, atr, price) {
   const fibRetrace = inDiscount ? (rangeHigh - price) / rangeSpan : (price - rangeLow) / rangeSpan;
   const inOTE = fibRetrace >= 0.618 && fibRetrace <= 0.79;
 
-  // ATURAN ZERO FLOATING: Harga saat ini harus sangat dekat dengan zona ekstrem (POI / Sweep / Low-High range)
-  const isZeroFloatingBuy = inDiscount && (lowSweep || Math.abs(price - ssl) <= 0.8 * atr || inOTE);
-  const isZeroFloatingSell = inPremium && (highSweep || Math.abs(price - bsl) <= 0.8 * atr || inOTE);
+  // Syarat Zero-Floating: Harga wajib berada di area ekstrem (dekat sweep / level POI)
+  const isZeroFloatingBuy = inDiscount && (lowSweep || Math.abs(price - ssl) <= 0.6 * atr || inOTE);
+  const isZeroFloatingSell = inPremium && (highSweep || Math.abs(price - bsl) <= 0.6 * atr || inOTE);
 
   if (isZeroFloatingBuy && (bullishCISD || h1Bull || lowSweep)) {
     res.dir = 'BUY';
-    res.stopLevel = Math.min(ssl, lastC[3], prevC[3]) - 0.3 * atr;
-    let pts = 35; // Base Zero-Floating Discount
-    res.reasons.push({ ok: true, txt: `Zero-Floating BUY: Harga di area ekstrem Discount (${fmtInt(price)})` });
-
-    if (lowSweep) { pts += 25; res.reasons.push({ ok: true, txt: `Turtle Soup / SSL Sweep tuntas di ${fmtInt(ssl)}` }); }
-    if (bullishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bullish CISD Displacement instan terkonfirmasi' }); }
-    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `Zona OTE Fibonacci akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
+    res.stopLevel = Math.min(ssl, lastC[3], prevC[3]) - 0.25 * atr;
+    let pts = 35;
+    res.reasons.push({ ok: true, txt: `Zero-Floating BUY: Harga di titik ekstrem Discount (${fmtInt(price)})` });
+    if (lowSweep) { pts += 25; res.reasons.push({ ok: true, txt: `SSL Liquidity Sweep tuntas di ${fmtInt(ssl)}` }); }
+    if (bullishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bullish CISD Displacement instan' }); }
+    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `OTE Fibonacci Zone akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
     if (h1Bull) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 Bullish' }); }
-
     res.score = Math.min(100, pts);
     return res;
   }
 
   if (isZeroFloatingSell && (bearishCISD || h1Bear || highSweep)) {
     res.dir = 'SELL';
-    res.stopLevel = Math.max(bsl, lastC[2], prevC[2]) + 0.3 * atr;
-    let pts = 35; // Base Zero-Floating Premium
-    res.reasons.push({ ok: true, txt: `Zero-Floating SELL: Harga di area ekstrem Premium (${fmtInt(price)})` });
-
-    if (highSweep) { pts += 25; res.reasons.push({ ok: true, txt: `Turtle Soup / BSL Sweep tuntas di ${fmtInt(bsl)}` }); }
-    if (bearishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bearish CISD Displacement instan terkonfirmasi' }); }
-    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `Zona OTE Fibonacci akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
+    res.stopLevel = Math.max(bsl, lastC[2], prevC[2]) + 0.25 * atr;
+    let pts = 35;
+    res.reasons.push({ ok: true, txt: `Zero-Floating SELL: Harga di titik ekstrem Premium (${fmtInt(price)})` });
+    if (highSweep) { pts += 25; res.reasons.push({ ok: true, txt: `BSL Liquidity Sweep tuntas di ${fmtInt(bsl)}` }); }
+    if (bearishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bearish CISD Displacement instan' }); }
+    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `OTE Fibonacci Zone akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
     if (h1Bear) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 Bearish' }); }
-
     res.score = Math.min(100, pts);
     return res;
   }
 
-  res.reasons.push({ ok: false, txt: 'Menunggu titik ekstrem untuk Zero Floating Entry' });
+  res.reasons.push({ ok: false, txt: 'Menunggu titik ekstrem untuk Zero-Floating Entry' });
   return res;
 }
 
@@ -526,7 +522,7 @@ function trendStrat(m15, h1, atr, price) {
 
   if (price != null && isFinite(price)) {
     const sw = m15.slice(-8);
-    let stop = L ? Math.min(...sw.map(x => x[3])) - 0.3 * atr : Math.max(...sw.map(x => x[2])) + 0.3 * atr;
+    let stop = L ? Math.min(...sw.map(x => x[3])) - 0.25 * atr : Math.max(...sw.map(x => x[2])) + 0.25 * atr;
     res.stopLevel = stop;
   }
   return res;
@@ -550,7 +546,7 @@ function liquidityStrat(m15, atr, h1dir, price) {
     if (!dir) continue;
     const L = dir === 'BUY';
     const ext = L ? Math.min(...m15.slice(k).map(x => x[3])) : Math.max(...m15.slice(k).map(x => x[2]));
-    let stop = L ? ext - 0.3 * atr : ext + 0.3 * atr;
+    let stop = L ? ext - 0.25 * atr : ext + 0.25 * atr;
     res.dir = dir; res.stopLevel = stop;
     res.reasons.push({ ok: true, txt: `Sweep ${L ? 'Low' : 'High'} di ${fmt(level)}` });
     res.score = 75;
@@ -698,7 +694,7 @@ function runAnalysis() {
   checkAutoSignal();
 }
 
-// Generate Automatic Signal Card (Perbaikan Arah SL/TP & Zero Floating)
+// Generate Automatic Signal Card (Perbaikan Arah SL/TP Buy & Sell + Zero Floating)
 function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a || !a.volOk) return;
@@ -956,7 +952,7 @@ function renderChart() {
 }
 
 function renderEngineUI() {
-  $('thrBtns').innerHTML = [80, 85, 90, 95].map(t =>
+  $('thrBtns').innerHTML = [70, 75, 80, 85].map(t =>
     `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
   ).join('');
 
