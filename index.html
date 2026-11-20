@@ -279,7 +279,7 @@ body {
   <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
     <div class="panel">
-      <div class="panel-title">Auto Signal Engine (Alchemist & SMC)</div>
+      <div class="panel-title">Auto Signal Engine (Alchemist Zero-Floating)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -350,12 +350,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v2') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v3') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v3', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function switchTab(tabId, title, btn) {
@@ -420,13 +420,12 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// 0. ALCHEMIST ADVANCED STRATEGY (ICT/SMC Institutional Confluence)
+// ALCHEMIST ADVANCED + ZERO FLOATING ENTRY STRATEGY
 function alchemistStrat(m15, h1, atr, price) {
   const n = m15.length;
-  const res = { key: 'ALCHEMIST', name: 'Alchemist Advanced', dir: null, score: 0, reasons: [], stopLevel: null };
+  const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Floating', dir: null, score: 0, reasons: [], stopLevel: null };
   if (n < 50 || !h1 || h1.length < 30) return res;
 
-  // 1. Dealing Range & Premium / Discount (Equilibrium 50%)
   const rangeSlice = m15.slice(-48);
   const rangeHigh = Math.max(...rangeSlice.map(x => x[2]));
   const rangeLow = Math.min(...rangeSlice.map(x => x[3]));
@@ -435,13 +434,11 @@ function alchemistStrat(m15, h1, atr, price) {
   const inPremium = price > eq;
   const inDiscount = price < eq;
 
-  // 2. HTF Bias (H1 Structure)
   const h1Closes = h1.map(x => x[4]);
   const e20h = emaArr(h1Closes, 20);
   const h1Bull = h1Closes[h1Closes.length - 1] > e20h[e20h.length - 1];
   const h1Bear = h1Closes[h1Closes.length - 1] < e20h[e20h.length - 1];
 
-  // 3. Liquidity Sweep / Turtle Soup (BSL & SSL)
   const pool = m15.slice(-25, -2);
   const bsl = Math.max(...pool.map(x => x[2]));
   const ssl = Math.min(...pool.map(x => x[3]));
@@ -451,67 +448,49 @@ function alchemistStrat(m15, h1, atr, price) {
   const highSweep = (lastC[2] > bsl && lastC[4] < bsl) || (prevC[2] > bsl && lastC[4] < bsl);
   const lowSweep = (lastC[3] < ssl && lastC[4] > ssl) || (prevC[3] < ssl && lastC[4] > ssl);
 
-  // 4. CISD (Change in State of Delivery) & Displacement
   const bodySize = Math.abs(lastC[4] - lastC[1]);
-  const prevBody = Math.abs(prevC[4] - prevC[1]);
-  const hasDisplacement = bodySize >= 0.6 * atr && bodySize > prevBody;
-  const bullishCISD = hasDisplacement && lastC[4] > prevC[2] && prevC[4] < prevC[1];
-  const bearishCISD = hasDisplacement && lastC[4] < prevC[3] && prevC[4] > prevC[1];
+  const hasDisplacement = bodySize >= 0.6 * atr;
+  const bullishCISD = hasDisplacement && lastC[4] > prevC[2];
+  const bearishCISD = hasDisplacement && lastC[4] < prevC[3];
 
-  // 5. OTE (Optimal Trade Entry Fibonacci 0.62 - 0.79)
   const fibRetrace = inDiscount ? (rangeHigh - price) / rangeSpan : (price - rangeLow) / rangeSpan;
   const inOTE = fibRetrace >= 0.618 && fibRetrace <= 0.79;
 
-  // 6. Fair Value Gap (FVG) & Order Block Confluence
-  let hasBullFVG = false, hasBearFVG = false;
-  for (let i = n - 3; i >= n - 8; i--) {
-    if (m15[i][3] > m15[i - 2][2]) hasBullFVG = true;
-    if (m15[i][2] < m15[i - 2][3]) hasBearFVG = true;
-  }
+  // ATURAN ZERO FLOATING: Harga saat ini harus sangat dekat dengan zona ekstrem (POI / Sweep / Low-High range)
+  const isZeroFloatingBuy = inDiscount && (lowSweep || Math.abs(price - ssl) <= 0.8 * atr || inOTE);
+  const isZeroFloatingSell = inPremium && (highSweep || Math.abs(price - bsl) <= 0.8 * atr || inOTE);
 
-  // Evaluasi BUY Setup Alchemist
-  if (inDiscount && (lowSweep || bullishCISD || (h1Bull && inOTE))) {
+  if (isZeroFloatingBuy && (bullishCISD || h1Bull || lowSweep)) {
     res.dir = 'BUY';
-    res.stopLevel = Math.min(ssl, lastC[3], prevC[3]) - 0.35 * atr;
-    let pts = 30; // Base structure + Discount
-    res.reasons.push({ ok: true, txt: `Premium/Discount: Harga di zona DISCOUNT (< ${fmtInt(eq)})` });
+    res.stopLevel = Math.min(ssl, lastC[3], prevC[3]) - 0.3 * atr;
+    let pts = 35; // Base Zero-Floating Discount
+    res.reasons.push({ ok: true, txt: `Zero-Floating BUY: Harga di area ekstrem Discount (${fmtInt(price)})` });
 
-    if (lowSweep) { pts += 20; res.reasons.push({ ok: true, txt: `Turtle Soup / SSL Sweep bersih di ${fmtInt(ssl)}` }); }
-    else { res.reasons.push({ ok: false, txt: 'Belum ada sapuan SSL mayor' }); }
-
-    if (bullishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bullish CISD & Displacement terkonfirmasi' }); }
-    else if (hasDisplacement && lastC[4] > lastC[1]) { pts += 10; res.reasons.push({ ok: true, txt: 'Displacement bullish aktif' }); }
-
-    if (inOTE) { pts += 15; res.reasons.push({ ok: true, txt: `OTE Zone tercapai (${(fibRetrace * 100).toFixed(1)}%)` }); }
-    if (hasBullFVG) { pts += 10; res.reasons.push({ ok: true, txt: 'Bullish FVG / POI aktif di area entry' }); }
-    if (h1Bull) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 selaras Bullish' }); }
+    if (lowSweep) { pts += 25; res.reasons.push({ ok: true, txt: `Turtle Soup / SSL Sweep tuntas di ${fmtInt(ssl)}` }); }
+    if (bullishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bullish CISD Displacement instan terkonfirmasi' }); }
+    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `Zona OTE Fibonacci akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
+    if (h1Bull) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 Bullish' }); }
 
     res.score = Math.min(100, pts);
     return res;
   }
 
-  // Evaluasi SELL Setup Alchemist
-  if (inPremium && (highSweep || bearishCISD || (h1Bear && inOTE))) {
+  if (isZeroFloatingSell && (bearishCISD || h1Bear || highSweep)) {
     res.dir = 'SELL';
-    res.stopLevel = Math.max(bsl, lastC[2], prevC[2]) + 0.35 * atr;
-    let pts = 30; // Base structure + Premium
-    res.reasons.push({ ok: true, txt: `Premium/Discount: Harga di zona PREMIUM (> ${fmtInt(eq)})` });
+    res.stopLevel = Math.max(bsl, lastC[2], prevC[2]) + 0.3 * atr;
+    let pts = 35; // Base Zero-Floating Premium
+    res.reasons.push({ ok: true, txt: `Zero-Floating SELL: Harga di area ekstrem Premium (${fmtInt(price)})` });
 
-    if (highSweep) { pts += 20; res.reasons.push({ ok: true, txt: `Turtle Soup / BSL Sweep bersih di ${fmtInt(bsl)}` }); }
-    else { res.reasons.push({ ok: false, txt: 'Belum ada sapuan BSL mayor' }); }
-
-    if (bearishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bearish CISD & Displacement terkonfirmasi' }); }
-    else if (hasDisplacement && lastC[4] < lastC[1]) { pts += 10; res.reasons.push({ ok: true, txt: 'Displacement bearish aktif' }); }
-
-    if (inOTE) { pts += 15; res.reasons.push({ ok: true, txt: `OTE Zone tercapai (${(fibRetrace * 100).toFixed(1)}%)` }); }
-    if (hasBearFVG) { pts += 10; res.reasons.push({ ok: true, txt: 'Bearish FVG / POI aktif di area entry' }); }
-    if (h1Bear) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 selaras Bearish' }); }
+    if (highSweep) { pts += 25; res.reasons.push({ ok: true, txt: `Turtle Soup / BSL Sweep tuntas di ${fmtInt(bsl)}` }); }
+    if (bearishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bearish CISD Displacement instan terkonfirmasi' }); }
+    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `Zona OTE Fibonacci akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
+    if (h1Bear) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 Bearish' }); }
 
     res.score = Math.min(100, pts);
     return res;
   }
 
-  res.reasons.push({ ok: false, txt: `NO TRADE: Harga di ${inPremium ? 'Premium' : 'Discount'}, menunggu sweep & CISD valid` });
+  res.reasons.push({ ok: false, txt: 'Menunggu titik ekstrem untuk Zero Floating Entry' });
   return res;
 }
 
@@ -719,7 +698,7 @@ function runAnalysis() {
   checkAutoSignal();
 }
 
-// Generate Automatic Signal Card (Perbaikan Arah SL/TP Buy & Sell)
+// Generate Automatic Signal Card (Perbaikan Arah SL/TP & Zero Floating)
 function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a || !a.volOk) return;
@@ -841,9 +820,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">📡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Memindai Setup Grade-A XAUUSD</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Memindai Setup Zero-Floating XAUUSD</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot otomatis menganalisis Alchemist Advanced, Trend, Liquidity Sweep, OB + IDM, dan BOS & CHOCH dari MT5.
+          Bot aktif memindai titik ekstrem POI & Liquidity Sweep agar entry presisi tanpa floating dalam.
         </div>
       </div>`;
     return;
@@ -856,7 +835,7 @@ function renderSignals() {
     if (s.status === 'ACTIVE') {
       statusHtml = s.tp1Hit
         ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>`
-        : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`;
+        : `<span class="sig-status active">● Active (Zero-Float) · ${timeAgo(s.createdAt)}</span>`;
     } else if (s.status === 'WON') {
       statusHtml = `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>`;
     } else {
@@ -926,9 +905,9 @@ function openDetails(idx) {
   ).join('');
   $('modalBody').innerHTML = `
     <div style="margin-bottom:12px;color:var(--text)">
-      Strategi: <b>${s.strat}</b> | Rasio R:R <b>${s.rr}</b>
+      Strategi: <b>${s.strat}</b> | Konfirmasi Zero-Floating Aktif
     </div>
-    <div class="panel-title">Konfirmasi Teknikal MT5 & Alchemist Confluence</div>
+    <div class="panel-title">Konfirmasi Teknikal MT5 & Zero-Float</div>
     ${reasonsHtml}
   `;
   $('detailModal').classList.add('open');
@@ -977,7 +956,6 @@ function renderChart() {
 }
 
 function renderEngineUI() {
-  // Hanya ambang skor 80%, 85%, 90%, 95%
   $('thrBtns').innerHTML = [80, 85, 90, 95].map(t =>
     `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
   ).join('');
@@ -1053,7 +1031,7 @@ async function pollPrice() {
   $('livePrice').textContent = fmt(state.price);
   const diff = state.price - prev;
   $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
-  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+  $('priceChg'].style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
 
   monitorSignals();
 }
