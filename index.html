@@ -1031,7 +1031,7 @@ async function pollPrice() {
   $('livePrice').textContent = fmt(state.price);
   const diff = state.price - prev;
   $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
-  $('priceChg'].style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
 
   monitorSignals();
 }
