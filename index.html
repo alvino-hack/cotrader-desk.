@@ -195,6 +195,11 @@ body {
   border: 1px solid var(--line); background: var(--card-inner);
   color: var(--text); font-weight: 600; font-size: 12px; cursor: pointer; margin-top: 8px;
 }
+.btn-notif {
+  width: 100%; padding: 11px; border-radius: 10px;
+  border: 1px solid var(--green); background: var(--green-bg);
+  color: var(--green); font-weight: 700; font-size: 12px; cursor: pointer;
+}
 
 /* Modal */
 .modal-bg {
@@ -264,6 +269,9 @@ body {
 <main class="view-container">
   <!-- TAB 1: SIGNALS -->
   <section class="tab-view active" id="view-signals">
+    <div id="notifBanner" style="margin-bottom:12px;display:none">
+      <button class="btn-notif" onclick="requestNotifPermission()">🔔 AKTIFKAN NOTIFIKASI SINYAL HP</button>
+    </div>
     <div id="signalsList"></div>
   </section>
 
@@ -278,6 +286,14 @@ body {
 
   <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
+    <div class="panel">
+      <div class="panel-title">Notifikasi & Peringatan</div>
+      <div class="row-item">
+        <span>Status Notifikasi HP</span>
+        <b id="notifStatusText" style="color:var(--gold)">Mengecek...</b>
+      </div>
+      <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
+    </div>
     <div class="panel">
       <div class="panel-title">Institutional Engine (Alchemist + OB/IDM)</div>
       <div id="engineRules"></div>
@@ -339,12 +355,13 @@ const POLL_MS = 5000;
 const CANDLE_POLL_MS = 25000;
 
 let liveOk = false;
+let wakeLock = null;
 const state = {
   price: 3865.00,
   hist: [],
   candles: null,
   analysis: null,
-  thr: 80, // Grade-A threshold
+  thr: 80,
   signals: [],
   bt: null
 };
@@ -358,6 +375,104 @@ function saveSignals() {
   try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
+// --- SISTEM NOTIFIKASI & SUARA LANGSUNG DARI APLIKASI ---
+function playAlertTone() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); // Nada A5 jernih
+    osc.frequency.exponentialRampToValueAtTime(1318.5, ctx.currentTime + 0.15); // Naik ke E6
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.45);
+  } catch (e) {}
+}
+
+function updateNotifUI() {
+  if (!('Notification' in window)) {
+    $('notifStatusText').textContent = 'Tidak Didukung Browser';
+    return;
+  }
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    $('notifBanner').style.display = 'none';
+    $('notifStatusText').textContent = 'AKTIF (ON)';
+    $('notifStatusText').style.color = 'var(--green)';
+  } else if (perm === 'denied') {
+    $('notifBanner').style.display = 'none';
+    $('notifStatusText').textContent = 'DIBLOKIR (Cek Pengaturan HP)';
+    $('notifStatusText').style.color = 'var(--red)';
+  } else {
+    $('notifBanner').style.display = 'block';
+    $('notifStatusText').textContent = 'BELUM DIAKTIFKAN';
+    $('notifStatusText').style.color = 'var(--gold)';
+  }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) return alert('Browser ini tidak mendukung notifikasi.');
+  const perm = await Notification.requestPermission();
+  updateNotifUI();
+  if (perm === 'granted') {
+    testNotification();
+  }
+}
+
+function sendAppNotification(title, body) {
+  playAlertTone();
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    const opts = {
+      body: body,
+      icon: 'icon-192.png',
+      badge: 'icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: 'ekebilas-signal-' + Date.now(),
+      renotify: true
+    };
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts));
+    } else {
+      new Notification(title, opts);
+    }
+  }
+}
+
+function testNotification() {
+  sendAppNotification(
+    '🔔 Tes Sinyal Ekebilas Bot',
+    'Notifikasi aktif! Sinyal Zero-Floating akan muncul otomatis di sini.'
+  );
+}
+
+// Menjaga layar/koneksi tetap terjaga saat aplikasi aktif
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    requestWakeLock();
+    pollPrice();
+  }
+});
+
+// Registrasi Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// --- NAVIGASI & DATA ---
 function switchTab(tabId, title, btn) {
   $('pageTitle').textContent = title;
   document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
@@ -366,6 +481,7 @@ function switchTab(tabId, title, btn) {
   btn.classList.add('active');
   if (tabId === 'chart') renderChart();
   if (tabId === 'stats') renderStats();
+  if (tabId === 'ai') updateNotifUI();
 }
 
 function jsonpGet(qs, validate) {
@@ -474,7 +590,7 @@ function alchemistStrat(m15, h1, atr, price) {
   return res;
 }
 
-// 2. OB + INDUCEMENT ZERO-FLOATING MURNI (Instan Eksekusi di Titik Pantul)
+// 2. OB + INDUCEMENT ZERO-FLOATING MURNI
 function obIdmStrat(m15, h1, atr, price) {
   const n = m15.length;
   const res = { key: 'OB_IDM', name: 'OB + Inducement (Zero-Float)', dir: null, score: 0, reasons: [], stopLevel: null };
@@ -488,18 +604,14 @@ function obIdmStrat(m15, h1, atr, price) {
 
   for (let i = n - 6; i >= n - 30; i--) {
     const c = m15[i];
-    
-    // Bullish OB + Inducement Sweep
     if (c[4] < c[1]) {
       const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 5));
       if (nextSlice.length < 2) continue;
       const moveHigh = Math.max(...nextSlice.map(x => x[2]));
       const impulse = moveHigh - c[3];
-      
       if (impulse >= 1.3 * atr) {
         const obTop = Math.max(c[1], c[4]), obBot = c[3];
         const lowWick = Math.min(lastC[3], lastC[4]);
-
         if (lowWick <= obTop && lastC[4] >= obBot && lastC[4] > lastC[1]) {
           res.dir = 'BUY';
           res.stopLevel = obBot - 0.2 * atr;
@@ -512,18 +624,14 @@ function obIdmStrat(m15, h1, atr, price) {
         }
       }
     }
-
-    // Bearish OB + Inducement Sweep
     if (c[4] > c[1]) {
       const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 5));
       if (nextSlice.length < 2) continue;
       const moveLow = Math.min(...nextSlice.slice(0, -1).map(x => x[3]));
       const impulse = c[2] - moveLow;
-      
       if (impulse >= 1.3 * atr) {
         const obBot = Math.min(c[1], c[4]), obTop = c[2];
         const highWick = Math.max(lastC[2], lastC[4]);
-
         if (highWick >= obBot && lastC[4] <= obTop && lastC[4] < lastC[1]) {
           res.dir = 'SELL';
           res.stopLevel = obTop + 0.2 * atr;
@@ -537,12 +645,11 @@ function obIdmStrat(m15, h1, atr, price) {
       }
     }
   }
-
   res.reasons.push({ ok: false, txt: 'Menunggu konfirmasi pantulan instan OB + IDM' });
   return res;
 }
 
-// Master Analyzer (Fokus murni Alchemist + OB/IDM)
+// Master Analyzer
 function runAnalysis() {
   const cd = state.candles;
   if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 70 || cd.h1.length < 70) return null;
@@ -572,7 +679,7 @@ function runAnalysis() {
   checkAutoSignal();
 }
 
-// Generate Automatic Signal Card (Alchemist & OB+IDM Only)
+// Generate Automatic Signal Card + TRIGGER NOTIFIKASI HP
 function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a || !a.volOk) return;
@@ -633,6 +740,12 @@ function checkAutoSignal() {
   state.signals.unshift(newSig);
   saveSignals();
   renderSignals();
+
+  // KIRIM NOTIFIKASI HP LANGSUNG
+  sendAppNotification(
+    `🚨 XAUUSD ${newSig.dir} (${newSig.strat})`,
+    `Entry: ${fmtInt(newSig.entry)} | SL: ${fmtInt(newSig.sl)} | TP1: ${fmtInt(newSig.tp1)} (Skor ${newSig.score}%)`
+  );
 }
 
 function monitorSignals() {
@@ -649,15 +762,18 @@ function monitorSignals() {
       s.sl = s.entry;
       s.beMoved = true;
       changed = true;
+      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Profit aman di ${fmtInt(s.tp1)}! SL digeser ke BE (${fmtInt(s.entry)}).`);
     }
     if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
       s.tp2Hit = true;
       changed = true;
+      sendAppNotification(`🔥 TP2 HIT! XAUUSD ${s.dir}`, `Target TP2 tercapai di ${fmtInt(s.tp2)}!`);
     }
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
       s.tp3Hit = true;
       s.status = 'WON';
       changed = true;
+      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal selesai dengan profit penuh di ${fmtInt(s.tp3)}!`);
     }
 
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
@@ -665,6 +781,7 @@ function monitorSignals() {
         s.status = 'WON';
       } else {
         s.status = 'LOSS';
+        sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`);
       }
       changed = true;
     }
@@ -923,6 +1040,8 @@ async function loadBacktest() {
 }
 
 for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
+updateNotifUI();
+requestWakeLock();
 renderSignals();
 renderEngineUI();
 pollPrice().then(refreshCandles);
