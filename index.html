@@ -318,7 +318,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Multi-Strategy Engine (4 Core Strategies)</div>
+      <div class="panel-title">Multi-Strategy Engine (Alchemist + QM + TS + CISD + H1 Trend)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -380,7 +380,6 @@ const CANDLE_POLL_MS = 25000;
 let liveOk = false;
 let wakeLock = null;
 let highImpactNewsActive = false;
-let newsListCache = [];
 
 const state = {
   price: 3865.00,
@@ -457,7 +456,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes Sinyal Ekebilas Bot', 'Notifikasi aktif! Sistem News Filter aktif.');
+  sendAppNotification('🔔 Tes Sinyal Ekebilas Bot', 'Notifikasi aktif! Sistem News & Trend Filter aktif.');
 }
 
 async function requestWakeLock() {
@@ -476,7 +475,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-// --- DETEKSI NEWS BESAR (HIGH IMPACT NEWS FOREX FACTORY API) ---
+// --- DETEKSI NEWS BESAR (FOREX FACTORY API) ---
 async function checkEconomicNews() {
   try {
     const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json');
@@ -484,7 +483,6 @@ async function checkEconomicNews() {
     const data = await res.json();
     const now = new Date();
     
-    // Filter news USD dengan impact High
     const usdHighNews = data.filter(item => item.country === 'USD' && item.impact === 'High');
     let activeAlert = false;
     let nextNewsTitle = '';
@@ -492,7 +490,6 @@ async function checkEconomicNews() {
     usdHighNews.forEach(item => {
       const newsTime = new Date(item.date);
       const diffMins = (newsTime - now) / 60000;
-      // Jika berita rilis dalam rentang 35 menit ke depan atau sudah lewat 15 menit
       if (diffMins >= -15 && diffMins <= 35) {
         activeAlert = true;
         nextNewsTitle = `${item.title} (${Math.round(diffMins)}m lagi)`;
@@ -502,7 +499,7 @@ async function checkEconomicNews() {
     highImpactNewsActive = activeAlert;
     if (activeAlert) {
       $('highImpactNewsAlert').style.display = 'flex';
-      $('newsDescText').textContent = `High Impact News (${nextNewsTitle}) sedang mendekati jadwal. Sinyal baru ditahan untuk keamanan.`;
+      $('newsDescText').textContent = `High Impact News (${nextNewsTitle}) mendekati jadwal. Sinyal baru ditahan untuk keamanan.`;
       $('newsStatusUI').textContent = `BAHAYA: ${nextNewsTitle}`;
       $('newsStatusUI').style.color = 'var(--red)';
     } else {
@@ -511,7 +508,6 @@ async function checkEconomicNews() {
       $('newsStatusUI').style.color = 'var(--green)';
     }
 
-    // Tampilkan 3 jadwal news USD high terdekat di tab AI
     const upcoming = usdHighNews.filter(item => new Date(item.date) > now).slice(0, 3);
     $('newsDetailBox').innerHTML = upcoming.length ? upcoming.map(n => 
       `<div>• <b>${n.title}</b> (${new Date(n.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})})</div>`
@@ -570,26 +566,65 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// Strategi 1: Alchemist Zero-Float
+// --- H1 TREND FILTER ---
+function checkH1Trend(h1Candles) {
+  if (!h1Candles || h1Candles.length < 20) return 'NEUTRAL';
+  const h1Closes = h1Candles.map(x => x[4]);
+  const h1EMA50 = emaArr(h1Closes, Math.min(50, h1Closes.length));
+  const lastClose = h1Closes[h1Closes.length - 1];
+  const lastEMA = h1EMA50[h1EMA50.length - 1];
+  return lastClose > lastEMA ? 'BULLISH' : 'BEARISH';
+}
+
+// --- STRATEGI 1: ALCHEMIST + TURTLE SOUP (TS) + QM + CISD ---
 function alchemistStrat(m15, h1, atr, price) {
   const n = m15.length;
-  const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Float', dir: null, score: 0, reasons: [], stopLevel: null };
-  if (n < 40) return res;
-  const lastC = m15[n - 1];
-  const pool = m15.slice(-20, -2);
-  const bsl = Math.max(...pool.map(x => x[2])), ssl = Math.min(...pool.map(x => x[3]));
+  const res = { key: 'ALCHEMIST', name: 'Alchemist + TS/QM/CISD', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 45) return res;
 
-  if (lastC[3] < ssl && lastC[4] > ssl) {
-    res.dir = 'BUY'; res.stopLevel = lastC[3] - 0.2 * atr; res.score = 82;
-    res.reasons.push({ ok: true, txt: `Alchemist Sweep SSL di ${fmtInt(ssl)}` });
+  // Format array candle objects untuk kemudahan akses
+  const candles = m15.map(x => ({ t: x[0], o: x[1], h: x[2], l: x[3], c: x[4] }));
+  const lastC = candles[n - 1];
+  const prevC = candles[n - 2];
+  const prev2C = candles[n - 3];
+
+  const pool = candles.slice(-25, -2);
+  const bsl = Math.max(...pool.map(x => x.h));
+  const ssl = Math.min(...pool.map(x => x.l));
+
+  // Pola Turtle Soup (TS) - Breakout palsu menyapu liquidity lalu berbalik arah
+  const isTurtleSoupBuy = lastC.l < ssl && lastC.c > ssl && prevC.h > ssl;
+  const isTurtleSoupSell = lastC.h > bsl && lastC.c < bsl && prevC.l < bsl;
+
+  // Pola Quasimodo (QM) Sederhana
+  const isQMBullish = prev2C.l < prevC.l && lastC.l > prevC.l && lastC.c > prevC.o;
+  const isQMBearish = prev2C.h > prevC.h && lastC.h < prevC.h && lastC.c < prevC.o;
+
+  // Pola CISD (Change in State of Delivery)
+  const isCISDBullish = lastC.c > lastC.o && (lastC.c - lastC.o) > 1.4 * atr && prevC.c < prevC.o;
+  const isCISDBearish = lastC.c < lastC.o && (lastC.o - lastC.c) > 1.4 * atr && prevC.c > prevC.o;
+
+  if (isTurtleSoupBuy || isQMBullish || isCISDBullish) {
+    res.dir = 'BUY'; 
+    res.stopLevel = Math.min(lastC.l, prevC.l) - 0.2 * atr; 
+    res.score = 86;
+    if (isTurtleSoupBuy) res.reasons.push({ ok: true, txt: `Turtle Soup (TS) Sweep SSL di ${fmtInt(ssl)}` });
+    if (isQMBullish) res.reasons.push({ ok: true, txt: 'Pola Quasimodo (QM) Bullish' });
+    if (isCISDBullish) res.reasons.push({ ok: true, txt: 'CISD Bullish Terkonfirmasi' });
     return res;
   }
-  if (lastC[2] > bsl && lastC[4] < bsl) {
-    res.dir = 'SELL'; res.stopLevel = lastC[2] + 0.2 * atr; res.score = 82;
-    res.reasons.push({ ok: true, txt: `Alchemist Sweep BSL di ${fmtInt(bsl)}` });
+
+  if (isTurtleSoupSell || isQMBearish || isCISDBearish) {
+    res.dir = 'SELL'; 
+    res.stopLevel = Math.max(lastC.h, prevC.h) + 0.2 * atr; 
+    res.score = 86;
+    if (isTurtleSoupSell) res.reasons.push({ ok: true, txt: `Turtle Soup (TS) Sweep BSL di ${fmtInt(bsl)}` });
+    if (isQMBearish) res.reasons.push({ ok: true, txt: 'Pola Quasimodo (QM) Bearish' });
+    if (isCISDBearish) res.reasons.push({ ok: true, txt: 'CISD Bearish Terkonfirmasi' });
     return res;
   }
-  res.reasons.push({ ok: false, txt: 'Menunggu Sweep Alchemist' });
+
+  res.reasons.push({ ok: false, txt: 'Menunggu setup Alchemist / TS / QM' });
   return res;
 }
 
@@ -605,7 +640,7 @@ function obIdmStrat(m15, h1, atr, price) {
     if (c[4] < c[1] && (c[2] - c[3]) >= 1.2 * atr) {
       const obBot = c[3];
       if (Math.min(lastC[3], lastC[4]) <= c[1] && lastC[4] >= obBot) {
-        res.dir = 'BUY'; res.stopLevel = obBot - 0.2 * atr; res.score = 80;
+        res.dir = 'BUY'; res.stopLevel = obBot - 0.2 * atr; res.score = 82;
         res.reasons.push({ ok: true, txt: `Mitigasi Bullish OB di ${fmtInt(obBot)}` });
         return res;
       }
@@ -613,7 +648,7 @@ function obIdmStrat(m15, h1, atr, price) {
     if (c[4] > c[1] && (c[2] - c[3]) >= 1.2 * atr) {
       const obTop = c[2];
       if (Math.max(lastC[2], lastC[4]) >= c[1] && lastC[4] <= obTop) {
-        res.dir = 'SELL'; res.stopLevel = obTop + 0.2 * atr; res.score = 80;
+        res.dir = 'SELL'; res.stopLevel = obTop + 0.2 * atr; res.score = 82;
         res.reasons.push({ ok: true, txt: `Mitigasi Bearish OB di ${fmtInt(obTop)}` });
         return res;
       }
@@ -633,12 +668,12 @@ function bosSweepStrat(m15, h1, atr, price) {
   const lowRef = Math.min(...m15.slice(-12, -2).map(x => x[3]));
 
   if (price > highRef && lastC[4] > prevC[2]) {
-    res.dir = 'BUY'; res.stopLevel = lowRef - 0.2 * atr; res.score = 78;
+    res.dir = 'BUY'; res.stopLevel = lowRef - 0.2 * atr; res.score = 80;
     res.reasons.push({ ok: true, txt: 'Break of Structure (BOS) Bullish' });
     return res;
   }
   if (price < lowRef && lastC[4] < prevC[3]) {
-    res.dir = 'SELL'; res.stopLevel = highRef + 0.2 * atr; res.score = 78;
+    res.dir = 'SELL'; res.stopLevel = highRef + 0.2 * atr; res.score = 80;
     res.reasons.push({ ok: true, txt: 'Break of Structure (BOS) Bearish' });
     return res;
   }
@@ -660,12 +695,12 @@ function momentumScalpStrat(m15, h1, atr, price) {
   const lastC = m15[n - 1];
 
   if (prev9 <= prev21 && last9 > last21 && lastC[4] > lastC[1]) {
-    res.dir = 'BUY'; res.stopLevel = Math.min(...m15.slice(-5).map(x => x[3])) - 0.2 * atr; res.score = 76;
+    res.dir = 'BUY'; res.stopLevel = Math.min(...m15.slice(-5).map(x => x[3])) - 0.2 * atr; res.score = 78;
     res.reasons.push({ ok: true, txt: 'EMA 9/21 Scalp Crossover Bullish' });
     return res;
   }
   if (prev9 >= prev21 && last9 < last21 && lastC[4] < lastC[1]) {
-    res.dir = 'SELL'; res.stopLevel = Math.max(...m15.slice(-5).map(x => x[2])) + 0.2 * atr; res.score = 76;
+    res.dir = 'SELL'; res.stopLevel = Math.max(...m15.slice(-5).map(x => x[2])) + 0.2 * atr; res.score = 78;
     res.reasons.push({ ok: true, txt: 'EMA 9/21 Scalp Crossover Bearish' });
     return res;
   }
@@ -699,10 +734,19 @@ function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a || !a.volOk) return;
 
-  // JIKA ADA NEWS HIGH IMPACT AKTIF, TAHAN SEMUA SINYAL BARU
   if (highImpactNewsActive) return;
 
-  const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
+  // Filter Tren H1 Utama
+  const h1Trend = checkH1Trend(state.candles.h1);
+
+  const valid = a.strats.filter(s => {
+    if (!s.dir || s.score < state.thr) return false;
+    // Blokir sinyal yang melawan arus tren H1
+    if (h1Trend === 'BULLISH' && s.dir === 'SELL') return false;
+    if (h1Trend === 'BEARISH' && s.dir === 'BUY') return false;
+    return true;
+  });
+
   if (!valid.length) return;
 
   valid.forEach(best => {
@@ -814,9 +858,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">📡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Multi-Strategy & News Filter Siaga</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Multi-Strategy & H1 Trend Siaga</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Memantau market XAUUSD dengan proteksi News Besar.
+          Memantau market XAUUSD dengan proteksi News & Trend Filter.
         </div>
       </div>`;
     return;
@@ -969,7 +1013,7 @@ renderEngineUI();
 pollPrice().then(refreshCandles);
 setInterval(pollPrice, POLL_MS);
 setInterval(refreshCandles, CANDLE_POLL_MS);
-setInterval(checkEconomicNews, 300000); // Cek berita setiap 5 menit
+setInterval(checkEconomicNews, 300000);
 </script>
 </body>
 </html>
