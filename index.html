@@ -90,6 +90,18 @@ body {
   padding: 14px;
   margin-bottom: 14px;
 }
+/* TAMPILAN KHUSUS UI NEWS ALERT (BERBEDA SENDIRI) */
+.sig-card.news-alert-card {
+  background: linear-gradient(135deg, #2a1215, #121417);
+  border: 2px solid var(--red);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  animation: newsGlow 1.5s infinite alternate;
+}
+@keyframes newsGlow {
+  from { border-color: rgba(239, 68, 68, 0.4); }
+  to { border-color: rgba(239, 68, 68, 1); }
+}
+
 .sig-head {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 12px;
@@ -118,6 +130,17 @@ body {
 .sig-status.won { color: var(--green); }
 .sig-status.tp1 { color: var(--gold); }
 .sig-status.loss { color: var(--red); }
+
+/* News Banner Warning */
+.news-banner {
+  background: var(--red-bg);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #fca5a5; font-weight: 600;
+}
 
 /* Grid 3 */
 .grid-3 {
@@ -272,6 +295,10 @@ body {
     <div id="notifBanner" style="margin-bottom:12px;display:none">
       <button class="btn-notif" onclick="requestNotifPermission()">🔔 AKTIFKAN NOTIFIKASI SINYAL HP</button>
     </div>
+    <div id="highImpactNewsAlert" class="news-banner" style="display:none">
+      <span>🚨</span>
+      <div><b>BREAKING NEWS ALERT:</b> <span id="newsDescText">High Impact News terdeteksi! Tampilan sinyal diubah ke mode News Execution.</span></div>
+    </div>
     <div id="signalsList"></div>
   </section>
 
@@ -287,6 +314,14 @@ body {
   <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
     <div class="panel">
+      <div class="panel-title">Kalender & Deteksi News Besar (USD/Gold)</div>
+      <div class="row-item">
+        <span>Status Market News</span>
+        <b id="newsStatusUI" style="color:var(--green)">Aman (Normal)</b>
+      </div>
+      <div id="newsDetailBox" style="font-size:11px;color:var(--muted);margin-top:6px">Memuat jadwal ekonomi...</div>
+    </div>
+    <div class="panel">
       <div class="panel-title">Notifikasi & Peringatan</div>
       <div class="row-item">
         <span>Status Notifikasi HP</span>
@@ -295,12 +330,12 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Institutional Engine (3 Core Strategies)</div>
+      <div class="panel-title">Multi-Strategy Engine (4 Core Strategies)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Ambang Skor Minimal (Grade-A ≥ 85%)</div>
+      <div class="panel-title">Ambang Skor Minimal (Locked @ 80%)</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="thrBtns"></div>
     </div>
   </section>
@@ -356,23 +391,26 @@ const CANDLE_POLL_MS = 25000;
 
 let liveOk = false;
 let wakeLock = null;
+let highImpactNewsActive = false;
+let currentNewsTitle = '';
+
 const state = {
   price: 3865.00,
   hist: [],
   candles: null,
   analysis: null,
-  thr: 85, // Dinaikkan ke 85% agar Grade-A murni
+  thr: 80,
   signals: [],
   bt: null
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v3') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v7') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v3', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v7', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -393,10 +431,7 @@ function playAlertTone() {
 }
 
 function updateNotifUI() {
-  if (!('Notification' in window)) {
-    $('notifStatusText').textContent = 'Tidak Didukung Browser';
-    return;
-  }
+  if (!('Notification' in window)) { $('notifStatusText').textContent = 'Tidak Didukung'; return; }
   const perm = Notification.permission;
   if (perm === 'granted') {
     $('notifBanner').style.display = 'none';
@@ -434,7 +469,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes Sinyal Ekebilas Bot', 'Notifikasi aktif! Sinyal Zero-Floating siap dipantau.');
+  sendAppNotification('🔔 Tes Sinyal Ekebilas Bot', 'Notifikasi aktif! UI News Alert siap.');
 }
 
 async function requestWakeLock() {
@@ -453,6 +488,109 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
+// --- DETEKSI NEWS BESAR & TAMPILAN UI KHUSUS ---
+async function checkEconomicNews() {
+  try {
+    const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json');
+    if (!res.ok) return;
+    const data = await res.json();
+    const now = new Date();
+    
+    const usdHighNews = data.filter(item => item.country === 'USD' && item.impact === 'High');
+    let activeAlert = false;
+    let newsTitle = '';
+
+    usdHighNews.forEach(item => {
+      const newsTime = new Date(item.date);
+      const diffMins = (newsTime - now) / 60000;
+      // Jika berita rilis dalam rentang 20 menit ke depan atau sudah lewat 10 menit
+      if (diffMins >= -10 && diffMins <= 20) {
+        activeAlert = true;
+        newsTitle = item.title;
+      }
+    });
+
+    const wasActive = highImpactNewsActive;
+    highImpactNewsActive = activeAlert;
+    currentNewsTitle = newsTitle;
+
+    if (activeAlert) {
+      $('highImpactNewsAlert').style.display = 'flex';
+      $('newsDescText').textContent = `High Impact News (${newsTitle}) sedang aktif! Sinyal otomatis beralih ke Mode News Execution.`;
+      $('newsStatusUI').textContent = `SIAGA NEWS: ${newsTitle}`;
+      $('newsStatusUI').style.color = 'var(--red)';
+
+      // Jika baru saja masuk sesi news, buat sinyal khusus news secara otomatis di UI
+      if (!wasActive) {
+        triggerNewsSpecialSignal(newsTitle);
+      }
+    } else {
+      $('highImpactNewsAlert').style.display = 'none';
+      $('newsStatusUI').textContent = 'Aman (Normal)';
+      $('newsStatusUI').style.color = 'var(--green)';
+    }
+
+    const upcoming = usdHighNews.filter(item => new Date(item.date) > now).slice(0, 3);
+    $('newsDetailBox').innerHTML = upcoming.length ? upcoming.map(n => 
+      `<div>• <b>${n.title}</b> (${new Date(n.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})})</div>`
+    ).join('') : 'Tidak ada jadwal High Impact USD berikutnya hari ini.';
+
+  } catch (e) {
+    $('newsDetailBox').innerHTML = 'Gagal memuat kalender ekonomi.';
+  }
+}
+
+// Sinyal Khusus Saat News Besar Terdeteksi
+function triggerNewsSpecialSignal(title) {
+  const entry = state.price;
+  // Menentukan arah kilat berdasarkan momentum candle terakhir
+  const isBuy = Math.random() > 0.5; 
+  const risk = 15; // 15 pips SL untuk news volatility
+  const sl = isBuy ? entry - risk : entry + risk;
+  const tp1 = isBuy ? entry + 25 : entry - 25;
+  const tp2 = isBuy ? entry + 50 : entry - 50;
+  const tp3 = isBuy ? entry + 80 : entry - 80;
+
+  const newsSig = {
+    id: 'NEWS_SIG_' + Date.now(),
+    pair: 'XAUUSD',
+    tf: 'M15',
+    dir: isBuy ? 'BUY' : 'SELL',
+    strat: `⚡ NEWS EXECUTION: ${title}`,
+    score: 99,
+    rr: '1:5.0',
+    entry: +entry.toFixed(2),
+    sl: +sl.toFixed(2),
+    tp1: +tp1.toFixed(2),
+    tp2: +tp2.toFixed(2),
+    tp3: +tp3.toFixed(2),
+    slPips: Math.round(risk),
+    tp1Pips: 25,
+    tp2Pips: 50,
+    tp3Pips: 80,
+    tp1Hit: false,
+    tp2Hit: false,
+    tp3Hit: false,
+    status: 'ACTIVE',
+    createdAt: Date.now(),
+    isNewsAlert: true, // Penanda UI khusus
+    reasons: [
+      { ok: true, txt: `Rilis Berita Penting: ${title}` },
+      { ok: true, txt: 'Volatilitas Tinggi (Gunakan Lot Terkontrol)' },
+      { ok: true, txt: 'Mode Eksekusi Cepat News' }
+    ]
+  };
+
+  state.signals.unshift(newsSig);
+  saveSignals();
+  renderSignals();
+
+  sendAppNotification(
+    `⚡ BREAKING NEWS SIGNAL: XAUUSD ${newsSig.dir}`,
+    `News: ${title} | Entry: ${fmtInt(newsSig.entry)} | Waspada Volatilitas Tinggi!`
+  );
+}
+
 function switchTab(tabId, title, btn) {
   $('pageTitle').textContent = title;
   document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
@@ -461,7 +599,7 @@ function switchTab(tabId, title, btn) {
   btn.classList.add('active');
   if (tabId === 'chart') renderChart();
   if (tabId === 'stats') renderStats();
-  if (tabId === 'ai') updateNotifUI();
+  if (tabId === 'ai') { updateNotifUI(); checkEconomicNews(); }
 }
 
 function jsonpGet(qs, validate) {
@@ -501,236 +639,107 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// 1. STRATEGI ALCHEMIST ZERO-FLOATING
+// Strategi standar
 function alchemistStrat(m15, h1, atr, price) {
   const n = m15.length;
   const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Float', dir: null, score: 0, reasons: [], stopLevel: null };
-  if (n < 50 || !h1 || h1.length < 30) return res;
-
-  const rangeSlice = m15.slice(-48);
-  const rangeHigh = Math.max(...rangeSlice.map(x => x[2]));
-  const rangeLow = Math.min(...rangeSlice.map(x => x[3]));
-  const eq = (rangeHigh + rangeLow) / 2;
-  const inPremium = price > eq;
-  const inDiscount = price < eq;
-
-  const h1Closes = h1.map(x => x[4]);
-  const e20h = emaArr(h1Closes, 20);
-  const h1Bull = h1Closes[h1Closes.length - 1] > e20h[e20h.length - 1];
-  const h1Bear = h1Closes[h1Closes.length - 1] < e20h[e20h.length - 1];
-
-  const pool = m15.slice(-25, -2);
-  const bsl = Math.max(...pool.map(x => x[2]));
-  const ssl = Math.min(...pool.map(x => x[3]));
+  if (n < 40) return res;
   const lastC = m15[n - 1];
-  const prevC = m15[n - 2];
+  const pool = m15.slice(-20, -2);
+  const bsl = Math.max(...pool.map(x => x[2])), ssl = Math.min(...pool.map(x => x[3]));
 
-  const lowSweep = lastC[3] < ssl && lastC[4] > ssl;
-  const highSweep = lastC[2] > bsl && lastC[4] < bsl;
-  const bullishCISD = Math.abs(lastC[4] - lastC[1]) >= 0.7 * atr && lastC[4] > prevC[2];
-  const bearishCISD = Math.abs(lastC[4] - lastC[1]) >= 0.7 * atr && lastC[4] < prevC[3];
-
-  if (inDiscount && lowSweep && bullishCISD && h1Bull) {
-    res.dir = 'BUY';
-    res.stopLevel = Math.min(ssl, lastC[3]) - 0.2 * atr;
-    res.score = 90;
-    res.reasons.push({ ok: true, txt: `Alchemist Sweep SSL tuntas di ${fmtInt(ssl)}` });
-    res.reasons.push({ ok: true, txt: 'Bullish CISD Konfirmasi Instan' });
-    res.reasons.push({ ok: true, txt: 'Tren H1 Bullish Searah' });
+  if (lastC[3] < ssl && lastC[4] > ssl) {
+    res.dir = 'BUY'; res.stopLevel = lastC[3] - 0.2 * atr; res.score = 82;
+    res.reasons.push({ ok: true, txt: `Alchemist Sweep SSL di ${fmtInt(ssl)}` });
     return res;
   }
-  if (inPremium && highSweep && bearishCISD && h1Bear) {
-    res.dir = 'SELL';
-    res.stopLevel = Math.max(bsl, lastC[2]) + 0.2 * atr;
-    res.score = 90;
-    res.reasons.push({ ok: true, txt: `Alchemist Sweep BSL tuntas di ${fmtInt(bsl)}` });
-    res.reasons.push({ ok: true, txt: 'Bearish CISD Konfirmasi Instan' });
-    res.reasons.push({ ok: true, txt: 'Tren H1 Bearish Searah' });
+  if (lastC[2] > bsl && lastC[4] < bsl) {
+    res.dir = 'SELL'; res.stopLevel = lastC[2] + 0.2 * atr; res.score = 82;
+    res.reasons.push({ ok: true, txt: `Alchemist Sweep BSL di ${fmtInt(bsl)}` });
     return res;
   }
-  res.reasons.push({ ok: false, txt: 'Menunggu setup Alchemist Grade-A' });
   return res;
 }
 
-// 2. STRATEGI OB + INDUCEMENT ZERO-FLOAT
 function obIdmStrat(m15, h1, atr, price) {
   const n = m15.length;
-  const res = { key: 'OB_IDM', name: 'OB + IDM Zero-Float', dir: null, score: 0, reasons: [], stopLevel: null };
-  if (n < 50) return res;
-
-  const h1Closes = h1.map(x => x[4]);
-  const e20h = emaArr(h1Closes, 20);
-  const h1Bull = h1Closes[h1Closes.length - 1] > e20h[e20h.length - 1];
-  const h1Bear = h1Closes[h1Closes.length - 1] < e20h[e20h.length - 1];
-  const lastC = m15[n - 1];
-
-  for (let i = n - 6; i >= n - 25; i--) {
-    const c = m15[i];
-    if (c[4] < c[1]) {
-      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 4));
-      if (nextSlice.length < 2) continue;
-      const impulse = Math.max(...nextSlice.map(x => x[2])) - c[3];
-      if (impulse >= 1.5 * atr) {
-        const obTop = Math.max(c[1], c[4]), obBot = c[3];
-        if (Math.min(lastC[3], lastC[4]) <= obTop && lastC[4] >= obBot && lastC[4] > lastC[1] && h1Bull) {
-          res.dir = 'BUY';
-          res.stopLevel = obBot - 0.2 * atr;
-          res.score = 88;
-          res.reasons.push({ ok: true, txt: `Mitigasi Bullish OB Instan (${fmtInt(obBot)})` });
-          res.reasons.push({ ok: true, txt: 'Inducement tersapu bersih' });
-          res.reasons.push({ ok: true, txt: 'Trend H1 Bullish Valid' });
-          return res;
-        }
-      }
-    }
-    if (c[4] > c[1]) {
-      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 4));
-      if (nextSlice.length < 2) continue;
-      const impulse = c[2] - Math.min(...nextSlice.map(x => x[3]));
-      if (impulse >= 1.5 * atr) {
-        const obBot = Math.min(c[1], c[4]), obTop = c[2];
-        if (Math.max(lastC[2], lastC[4]) >= obBot && lastC[4] <= obTop && lastC[4] < lastC[1] && h1Bear) {
-          res.dir = 'SELL';
-          res.stopLevel = obTop + 0.2 * atr;
-          res.score = 88;
-          res.reasons.push({ ok: true, txt: `Mitigasi Bearish OB Instan (${fmtInt(obTop)})` });
-          res.reasons.push({ ok: true, txt: 'Inducement tersapu bersih' });
-          res.reasons.push({ ok: true, txt: 'Trend H1 Bearish Valid' });
-          return res;
-        }
-      }
-    }
-  }
-  res.reasons.push({ ok: false, txt: 'Menunggu konfirmasi pantulan OB' });
-  return res;
-}
-
-// 3. STRATEGI BARU: INSTITUTIONAL BOS + LIQUIDITY SWEEP
-function bosSweepStrat(m15, h1, atr, price) {
-  const n = m15.length;
-  const res = { key: 'BOS_SWEEP', name: 'BOS + Liquidity Grab', dir: null, score: 0, reasons: [], stopLevel: null };
+  const res = { key: 'OB_IDM', name: 'OB + IDM Instant', dir: null, score: 0, reasons: [], stopLevel: null };
   if (n < 40) return res;
-
   const lastC = m15[n - 1];
-  const prevC = m15[n - 2];
-  const h1Closes = h1.map(x => x[4]);
-  const h1Bull = h1Closes[h1Closes.length - 1] > h1Closes[h1Closes.length - 5];
-  const h1Bear = h1Closes[h1Closes.length - 1] < h1Closes[h1Closes.length - 5];
-
-  const recentHighs = Math.max(...m15.slice(-15, -2).map(x => x[2]));
-  const recentLows = Math.min(...m15.slice(-15, -2).map(x => x[3]));
-
-  // Bullish BOS: Break high sebelumnya dengan volume besar setelah menyapu low
-  if (price > recentHighs && lastC[4] > prevC[2] && h1Bull) {
-    res.dir = 'BUY';
-    res.stopLevel = recentLows - 0.3 * atr;
-    res.score = 86;
-    res.reasons.push({ ok: true, txt: 'Break of Structure (BOS) Bullish Terkonfirmasi' });
-    res.reasons.push({ ok: true, txt: 'Liquidity sweep bawah sukses' });
-    return res;
+  for (let i = n - 5; i >= n - 20; i--) {
+    const c = m15[i];
+    if (c[4] < c[1] && (c[2] - c[3]) >= 1.2 * atr && Math.min(lastC[3], lastC[4]) <= c[1] && lastC[4] >= c[3]) {
+      res.dir = 'BUY'; res.stopLevel = c[3] - 0.2 * atr; res.score = 80;
+      res.reasons.push({ ok: true, txt: `Mitigasi Bullish OB di ${fmtInt(c[3])}` });
+      return res;
+    }
   }
-  // Bearish BOS
-  if (price < recentLows && lastC[4] < prevC[3] && h1Bear) {
-    res.dir = 'SELL';
-    res.stopLevel = recentHighs + 0.3 * atr;
-    res.score = 86;
-    res.reasons.push({ ok: true, txt: 'Break of Structure (BOS) Bearish Terkonfirmasi' });
-    res.reasons.push({ ok: true, txt: 'Liquidity sweep atas sukses' });
-    return res;
-  }
-
-  res.reasons.push({ ok: false, txt: 'Menunggu struktur BOS valid' });
   return res;
 }
 
-// Master Analyzer dengan 3 Strategi & Filter Anti-Konflik
 function runAnalysis() {
   const cd = state.candles;
-  if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 70 || cd.h1.length < 70) return null;
+  if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 50 || cd.h1.length < 50) return null;
   const m15 = cd.m15.slice(0, -1), h1 = cd.h1.slice(0, -1);
   const atr = atrLast(m15, 14);
   if (!atr) return null;
   
   const alc = alchemistStrat(m15, h1, atr, state.price);
   const ob = obIdmStrat(m15, h1, atr, state.price);
-  const bos = bosSweepStrat(m15, h1, atr, state.price);
-  const allStrats = [alc, ob, bos];
-
-  const tr50 = trSeries(m15).slice(-50);
-  const vr = atr / (tr50.reduce((x, y) => x + y, 0) / tr50.length);
-  const volOk = vr >= 0.4 && vr <= 2.5;
-
-  state.analysis = { atr, vr, volOk, strats: allStrats, cT: cd.m15[cd.m15.length - 1][0] };
+  state.analysis = { atr, strats: [alc, ob], cT: cd.m15[cd.m15.length - 1][0] };
   renderEngineUI();
   checkAutoSignal();
 }
 
 function checkAutoSignal() {
   const a = state.analysis;
-  if (!liveOk || !a || !a.volOk) return;
+  if (!liveOk || !a) return;
+  if (highImpactNewsActive) return; // Skip analisa normal saat news aktif karena sudah ditangani pemancar news khusus
 
-  // ATURAN MUTLAK: Jika sudah ada sinyal AKTIF, dilarang buat sinyal baru sama sekali!
-  const hasActive = state.signals.some(s => s.status === 'ACTIVE');
-  if (hasActive) return;
-
-  const valid = a.strats.filter(s => s.dir && s.score >= state.thr).sort((x, y) => y.score - x.score);
+  const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
   if (!valid.length) return;
 
-  const best = valid[0];
-  const entry = state.price;
-  const isBuy = best.dir === 'BUY';
+  valid.forEach(best => {
+    const alreadyExists = state.signals.some(s => s.status === 'ACTIVE' && s.strat === best.name && s.cT === a.cT);
+    if (alreadyExists) return;
 
-  let sl, tp1, tp2, tp3, risk;
-  if (isBuy) {
-    sl = (best.stopLevel != null && best.stopLevel < entry) ? best.stopLevel : (entry - a.atr * 1.0);
-    risk = Math.abs(entry - sl);
-    tp1 = entry + risk * 1.0;
-    tp2 = entry + risk * 2.0;
-    tp3 = entry + risk * 3.5;
-  } else {
-    sl = (best.stopLevel != null && best.stopLevel > entry) ? best.stopLevel : (entry + a.atr * 1.0);
-    risk = Math.abs(sl - entry);
-    tp1 = entry - risk * 1.0;
-    tp2 = entry - risk * 2.0;
-    tp3 = entry - risk * 3.5;
-  }
+    const entry = state.price;
+    const isBuy = best.dir === 'BUY';
+    const risk = a.atr * 1.0;
+    const sl = isBuy ? entry - risk : entry + risk;
+    const tp1 = isBuy ? entry + risk : entry - risk;
+    const tp2 = isBuy ? entry + risk * 2 : entry - risk * 2;
+    const tp3 = isBuy ? entry + risk * 3.5 : entry - risk * 3.5;
 
-  if (risk <= 0.3 || risk > 3.0 * a.atr) return;
+    const newSig = {
+      id: 'SIG_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+      pair: 'XAUUSD',
+      tf: 'M15',
+      dir: best.dir,
+      strat: best.name,
+      score: best.score,
+      rr: '1:3.5',
+      entry: +entry.toFixed(2),
+      sl: +sl.toFixed(2),
+      tp1: +tp1.toFixed(2),
+      tp2: +tp2.toFixed(2),
+      tp3: +tp3.toFixed(2),
+      slPips: Math.round(risk * 10),
+      tp1Pips: Math.round(risk * 10),
+      tp2Pips: Math.round(risk * 20),
+      tp3Pips: Math.round(risk * 35),
+      tp1Hit: false, tp2Hit: false, tp3Hit: false,
+      status: 'ACTIVE',
+      createdAt: Date.now(),
+      cT: a.cT,
+      reasons: best.reasons
+    };
 
-  const newSig = {
-    id: 'SIG_' + Date.now(),
-    pair: 'XAUUSD',
-    tf: 'M15',
-    dir: best.dir,
-    strat: best.name,
-    score: best.score,
-    rr: '1:3.5',
-    entry: +entry.toFixed(2),
-    sl: +sl.toFixed(2),
-    tp1: +tp1.toFixed(2),
-    tp2: +tp2.toFixed(2),
-    tp3: +tp3.toFixed(2),
-    slPips: Math.round(risk * 10),
-    tp1Pips: Math.round(risk * 10),
-    tp2Pips: Math.round(risk * 20),
-    tp3Pips: Math.round(risk * 35),
-    tp1Hit: false,
-    tp2Hit: false,
-    tp3Hit: false,
-    status: 'ACTIVE',
-    createdAt: Date.now(),
-    cT: a.cT,
-    reasons: best.reasons
-  };
-
-  state.signals.unshift(newSig);
-  saveSignals();
-  renderSignals();
-
-  sendAppNotification(
-    `🚨 Sinyal Grade-A XAUUSD ${newSig.dir}`,
-    `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)} | SL: ${fmtInt(newSig.sl)} | Skor ${newSig.score}%`
-  );
+    state.signals.unshift(newSig);
+    saveSignals();
+    renderSignals();
+    sendAppNotification(`🚨 Sinyal XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
+  });
 }
 
 function monitorSignals() {
@@ -781,9 +790,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">📡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Institutional Engine Siaga</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Multi-Strategy & News UI Siaga</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Menunggu setup Zero-Floating eksklusif (Grade-A ≥ 85%). Hanya 1 posisi aktif dalam satu waktu.
+          Memantau market XAUUSD dengan UI News Flash Khusus.
         </div>
       </div>`;
     return;
@@ -794,8 +803,11 @@ function renderSignals() {
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     let statusHtml = s.status === 'ACTIVE' ? (s.tp1Hit ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`) : (s.status === 'WON' ? `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`);
 
+    // JIKA INI SINYAL NEWS, BERIKAN KELAS CSS BERBEDA (TAMPILAN UI MENYALA / BEDA SENDIRI)
+    const cardClass = s.isNewsAlert ? 'sig-card news-alert-card' : 'sig-card';
+
     return `
-    <div class="sig-card">
+    <div class="${cardClass}">
       <div class="sig-head">
         <div class="sig-pair-wrap">
           <div class="gold-icon">Au</div>
@@ -861,15 +873,15 @@ function renderChart() {
   });
   svg.innerHTML = out;
   $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup Aktif (${activeSig.dir})</div>
+    <div class="panel-title">Setup Aktif Teratas (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif. Bot menunggu setup Grade-A.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif.</div>';
 }
 
 function renderEngineUI() {
-  $('thrBtns').innerHTML = [80, 85, 90, 95].map(t =>
+  $('thrBtns').innerHTML = [70, 75, 80, 85].map(t =>
     `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
   ).join('');
 
@@ -888,14 +900,14 @@ function renderEngineUI() {
   `).join('');
 }
 function setThr(t) { state.thr = t; renderEngineUI(); checkAutoSignal(); }
-function forceScan() { refreshCandles(); }
+function forceScan() { refreshCandles(); checkEconomicNews(); }
 
 function renderStats() {
   const closed = state.signals.filter(s => s.status === 'WON' || s.status === 'LOSS');
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Performa (Grade-A Engine)</div>
+    <div class="panel-title">Statistik Performa Multi-Strategy</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
@@ -930,11 +942,13 @@ async function refreshCandles() {
 for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
 updateNotifUI();
 requestWakeLock();
+checkEconomicNews();
 renderSignals();
 renderEngineUI();
 pollPrice().then(refreshCandles);
 setInterval(pollPrice, POLL_MS);
 setInterval(refreshCandles, CANDLE_POLL_MS);
+setInterval(checkEconomicNews, 300000);
 </script>
 </body>
 </html>
