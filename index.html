@@ -441,7 +441,6 @@ function alchemistStrat(m15, h1, atr, price) {
   const fibRetrace = inDiscount ? (rangeHigh - price) / rangeSpan : (price - rangeLow) / rangeSpan;
   const inOTE = fibRetrace >= 0.618 && fibRetrace <= 0.79;
 
-  // Syarat Zero-Floating: Harga wajib di titik ekstrem POI / Sweep
   const isZeroFloatingBuy = inDiscount && (lowSweep || Math.abs(price - ssl) <= 0.65 * atr || inOTE);
   const isZeroFloatingSell = inPremium && (highSweep || Math.abs(price - bsl) <= 0.65 * atr || inOTE);
 
@@ -475,7 +474,7 @@ function alchemistStrat(m15, h1, atr, price) {
   return res;
 }
 
-// 2. OB + INDUCEMENT ZERO-FLOATING STRATEGY
+// 2. OB + INDUCEMENT ZERO-FLOATING MURNI (Instan Eksekusi di Titik Pantul)
 function obIdmStrat(m15, h1, atr, price) {
   const n = m15.length;
   const res = { key: 'OB_IDM', name: 'OB + Inducement (Zero-Float)', dir: null, score: 0, reasons: [], stopLevel: null };
@@ -485,55 +484,61 @@ function obIdmStrat(m15, h1, atr, price) {
   const e20h = emaArr(h1Closes, 20);
   const h1Bull = h1Closes[h1Closes.length - 1] > e20h[e20h.length - 1];
   const h1Bear = h1Closes[h1Closes.length - 1] < e20h[e20h.length - 1];
+  const lastC = m15[n - 1];
 
-  for (let i = n - 6; i >= n - 35; i--) {
+  for (let i = n - 6; i >= n - 30; i--) {
     const c = m15[i];
-    // Bullish OB
+    
+    // Bullish OB + Inducement Sweep
     if (c[4] < c[1]) {
-      const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
+      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 5));
       if (nextSlice.length < 2) continue;
       const moveHigh = Math.max(...nextSlice.map(x => x[2]));
       const impulse = moveHigh - c[3];
-      if (impulse >= 1.4 * atr) {
+      
+      if (impulse >= 1.3 * atr) {
         const obTop = Math.max(c[1], c[4]), obBot = c[3];
-        // Zero-Floating: Harga harus masuk persis di dalam zona OB (tidak jauh di luar)
-        if (price >= obBot && price <= obTop + 0.25 * atr) {
+        const lowWick = Math.min(lastC[3], lastC[4]);
+
+        if (lowWick <= obTop && lastC[4] >= obBot && lastC[4] > lastC[1]) {
           res.dir = 'BUY';
-          res.stopLevel = obBot - 0.25 * atr;
-          let pts = 65;
-          res.reasons.push({ ok: true, txt: `Mitigasi tepat di Bullish OB (${fmtInt(obBot)}–${fmtInt(obTop)})` });
-          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu bersih' });
-          if (h1Bull) { pts += 15; res.reasons.push({ ok: true, txt: 'Selaras dengan tren HTF H1 Bullish' }); }
-          if (impulse >= 2.0 * atr) { pts += 10; res.reasons.push({ ok: true, txt: 'Impulsive Displacement kuat' }); }
+          res.stopLevel = obBot - 0.2 * atr;
+          let pts = 70;
+          res.reasons.push({ ok: true, txt: `Zero-Float Bullish OB: Pantulan instan di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu & rejection valid' });
+          if (h1Bull) { pts += 15; res.reasons.push({ ok: true, txt: 'Trend H1 Bullish selaras' }); }
           res.score = Math.min(100, pts);
           return res;
         }
       }
     }
-    // Bearish OB
+
+    // Bearish OB + Inducement Sweep
     if (c[4] > c[1]) {
-      const nextSlice = m15.slice(i + 1, Math.min(n - 2, i + 5));
+      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 5));
       if (nextSlice.length < 2) continue;
-      const moveLow = Math.min(...nextSlice.map(x => x[3]));
+      const moveLow = Math.min(...nextSlice.slice(0, -1).map(x => x[3]));
       const impulse = c[2] - moveLow;
-      if (impulse >= 1.4 * atr) {
+      
+      if (impulse >= 1.3 * atr) {
         const obBot = Math.min(c[1], c[4]), obTop = c[2];
-        // Zero-Floating: Harga harus masuk persis di dalam zona OB
-        if (price <= obTop && price >= obBot - 0.25 * atr) {
+        const highWick = Math.max(lastC[2], lastC[4]);
+
+        if (highWick >= obBot && lastC[4] <= obTop && lastC[4] < lastC[1]) {
           res.dir = 'SELL';
-          res.stopLevel = obTop + 0.25 * atr;
-          let pts = 65;
-          res.reasons.push({ ok: true, txt: `Mitigasi tepat di Bearish OB (${fmtInt(obBot)}–${fmtInt(obTop)})` });
-          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu bersih' });
-          if (h1Bear) { pts += 15; res.reasons.push({ ok: true, txt: 'Selaras dengan tren HTF H1 Bearish' }); }
-          if (impulse >= 2.0 * atr) { pts += 10; res.reasons.push({ ok: true, txt: 'Impulsive Displacement kuat' }); }
+          res.stopLevel = obTop + 0.2 * atr;
+          let pts = 70;
+          res.reasons.push({ ok: true, txt: `Zero-Float Bearish OB: Pantulan instan di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
+          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu & rejection valid' });
+          if (h1Bear) { pts += 15; res.reasons.push({ ok: true, txt: 'Trend H1 Bearish selaras' }); }
           res.score = Math.min(100, pts);
           return res;
         }
       }
     }
   }
-  res.reasons.push({ ok: false, txt: 'Menunggu harga menyentuh zona OB + IDM' });
+
+  res.reasons.push({ ok: false, txt: 'Menunggu konfirmasi pantulan instan OB + IDM' });
   return res;
 }
 
@@ -549,7 +554,6 @@ function runAnalysis() {
   const ob = obIdmStrat(m15, h1, atr, state.price);
   const allStrats = [alc, ob];
 
-  // Bonus Konfluensi jika Alchemist & OB/IDM searah
   ['BUY', 'SELL'].forEach(d => {
     const aligned = allStrats.filter(st => st.dir === d && st.score >= 65);
     if (aligned.length >= 2) {
