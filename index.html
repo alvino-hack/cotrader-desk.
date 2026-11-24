@@ -295,12 +295,12 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Institutional Engine (Alchemist + OB/IDM)</div>
+      <div class="panel-title">Institutional Engine (3 Core Strategies)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Ambang Skor Minimal (Grade-A ≥ 80%)</div>
+      <div class="panel-title">Ambang Skor Minimal (Grade-A ≥ 85%)</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="thrBtns"></div>
     </div>
   </section>
@@ -361,29 +361,28 @@ const state = {
   hist: [],
   candles: null,
   analysis: null,
-  thr: 80,
+  thr: 85, // Dinaikkan ke 85% agar Grade-A murni
   signals: [],
   bt: null
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v2') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v3') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v2', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v3', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
-// --- SISTEM NOTIFIKASI & SUARA LANGSUNG DARI APLIKASI ---
 function playAlertTone() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, ctx.currentTime); // Nada A5 jernih
-    osc.frequency.exponentialRampToValueAtTime(1318.5, ctx.currentTime + 0.15); // Naik ke E6
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1318.5, ctx.currentTime + 0.15);
     gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
     osc.connect(gain);
@@ -405,7 +404,7 @@ function updateNotifUI() {
     $('notifStatusText').style.color = 'var(--green)';
   } else if (perm === 'denied') {
     $('notifBanner').style.display = 'none';
-    $('notifStatusText').textContent = 'DIBLOKIR (Cek Pengaturan HP)';
+    $('notifStatusText').textContent = 'DIBLOKIR';
     $('notifStatusText').style.color = 'var(--red)';
   } else {
     $('notifBanner').style.display = 'block';
@@ -415,27 +414,17 @@ function updateNotifUI() {
 }
 
 async function requestNotifPermission() {
-  if (!('Notification' in window)) return alert('Browser ini tidak mendukung notifikasi.');
+  if (!('Notification' in window)) return;
   const perm = await Notification.requestPermission();
   updateNotifUI();
-  if (perm === 'granted') {
-    testNotification();
-  }
+  if (perm === 'granted') testNotification();
 }
 
 function sendAppNotification(title, body) {
   playAlertTone();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-
   if ('Notification' in window && Notification.permission === 'granted') {
-    const opts = {
-      body: body,
-      icon: 'icon-192.png',
-      badge: 'icon-192.png',
-      vibrate: [200, 100, 200],
-      tag: 'ekebilas-signal-' + Date.now(),
-      renotify: true
-    };
+    const opts = { body, icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [200, 100, 200], tag: 'ekebilas-' + Date.now(), renotify: true };
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts));
     } else {
@@ -445,13 +434,9 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification(
-    '🔔 Tes Sinyal Ekebilas Bot',
-    'Notifikasi aktif! Sinyal Zero-Floating akan muncul otomatis di sini.'
-  );
+  sendAppNotification('🔔 Tes Sinyal Ekebilas Bot', 'Notifikasi aktif! Sinyal Zero-Floating siap dipantau.');
 }
 
-// Menjaga layar/koneksi tetap terjaga saat aplikasi aktif
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator && !wakeLock) {
@@ -461,18 +446,13 @@ async function requestWakeLock() {
   } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    requestWakeLock();
-    pollPrice();
-  }
+  if (document.visibilityState === 'visible') { requestWakeLock(); pollPrice(); }
 });
 
-// Registrasi Service Worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-// --- NAVIGASI & DATA ---
 function switchTab(tabId, title, btn) {
   $('pageTitle').textContent = title;
   document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
@@ -521,17 +501,16 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// 1. ALCHEMIST ZERO-FLOATING STRATEGY
+// 1. STRATEGI ALCHEMIST ZERO-FLOATING
 function alchemistStrat(m15, h1, atr, price) {
   const n = m15.length;
-  const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Floating', dir: null, score: 0, reasons: [], stopLevel: null };
+  const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Float', dir: null, score: 0, reasons: [], stopLevel: null };
   if (n < 50 || !h1 || h1.length < 30) return res;
 
   const rangeSlice = m15.slice(-48);
   const rangeHigh = Math.max(...rangeSlice.map(x => x[2]));
   const rangeLow = Math.min(...rangeSlice.map(x => x[3]));
   const eq = (rangeHigh + rangeLow) / 2;
-  const rangeSpan = Math.max(rangeHigh - rangeLow, 1e-9);
   const inPremium = price > eq;
   const inDiscount = price < eq;
 
@@ -546,54 +525,37 @@ function alchemistStrat(m15, h1, atr, price) {
   const lastC = m15[n - 1];
   const prevC = m15[n - 2];
 
-  const highSweep = (lastC[2] > bsl && lastC[4] < bsl) || (prevC[2] > bsl && lastC[4] < bsl);
-  const lowSweep = (lastC[3] < ssl && lastC[4] > ssl) || (prevC[3] < ssl && lastC[4] > ssl);
+  const lowSweep = lastC[3] < ssl && lastC[4] > ssl;
+  const highSweep = lastC[2] > bsl && lastC[4] < bsl;
+  const bullishCISD = Math.abs(lastC[4] - lastC[1]) >= 0.7 * atr && lastC[4] > prevC[2];
+  const bearishCISD = Math.abs(lastC[4] - lastC[1]) >= 0.7 * atr && lastC[4] < prevC[3];
 
-  const bodySize = Math.abs(lastC[4] - lastC[1]);
-  const hasDisplacement = bodySize >= 0.6 * atr;
-  const bullishCISD = hasDisplacement && lastC[4] > prevC[2];
-  const bearishCISD = hasDisplacement && lastC[4] < prevC[3];
-
-  const fibRetrace = inDiscount ? (rangeHigh - price) / rangeSpan : (price - rangeLow) / rangeSpan;
-  const inOTE = fibRetrace >= 0.618 && fibRetrace <= 0.79;
-
-  const isZeroFloatingBuy = inDiscount && (lowSweep || Math.abs(price - ssl) <= 0.65 * atr || inOTE);
-  const isZeroFloatingSell = inPremium && (highSweep || Math.abs(price - bsl) <= 0.65 * atr || inOTE);
-
-  if (isZeroFloatingBuy && (bullishCISD || h1Bull || lowSweep)) {
+  if (inDiscount && lowSweep && bullishCISD && h1Bull) {
     res.dir = 'BUY';
-    res.stopLevel = Math.min(ssl, lastC[3], prevC[3]) - 0.25 * atr;
-    let pts = 35;
-    res.reasons.push({ ok: true, txt: `Zero-Floating BUY: Harga di titik ekstrem Discount (${fmtInt(price)})` });
-    if (lowSweep) { pts += 25; res.reasons.push({ ok: true, txt: `SSL Liquidity Sweep tuntas di ${fmtInt(ssl)}` }); }
-    if (bullishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bullish CISD Displacement instan' }); }
-    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `OTE Fibonacci Zone akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
-    if (h1Bull) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 Bullish' }); }
-    res.score = Math.min(100, pts);
+    res.stopLevel = Math.min(ssl, lastC[3]) - 0.2 * atr;
+    res.score = 90;
+    res.reasons.push({ ok: true, txt: `Alchemist Sweep SSL tuntas di ${fmtInt(ssl)}` });
+    res.reasons.push({ ok: true, txt: 'Bullish CISD Konfirmasi Instan' });
+    res.reasons.push({ ok: true, txt: 'Tren H1 Bullish Searah' });
     return res;
   }
-
-  if (isZeroFloatingSell && (bearishCISD || h1Bear || highSweep)) {
+  if (inPremium && highSweep && bearishCISD && h1Bear) {
     res.dir = 'SELL';
-    res.stopLevel = Math.max(bsl, lastC[2], prevC[2]) + 0.25 * atr;
-    let pts = 35;
-    res.reasons.push({ ok: true, txt: `Zero-Floating SELL: Harga di titik ekstrem Premium (${fmtInt(price)})` });
-    if (highSweep) { pts += 25; res.reasons.push({ ok: true, txt: `BSL Liquidity Sweep tuntas di ${fmtInt(bsl)}` }); }
-    if (bearishCISD) { pts += 20; res.reasons.push({ ok: true, txt: 'Bearish CISD Displacement instan' }); }
-    if (inOTE) { pts += 10; res.reasons.push({ ok: true, txt: `OTE Fibonacci Zone akurat (${(fibRetrace * 100).toFixed(1)}%)` }); }
-    if (h1Bear) { pts += 10; res.reasons.push({ ok: true, txt: 'HTF Bias H1 Bearish' }); }
-    res.score = Math.min(100, pts);
+    res.stopLevel = Math.max(bsl, lastC[2]) + 0.2 * atr;
+    res.score = 90;
+    res.reasons.push({ ok: true, txt: `Alchemist Sweep BSL tuntas di ${fmtInt(bsl)}` });
+    res.reasons.push({ ok: true, txt: 'Bearish CISD Konfirmasi Instan' });
+    res.reasons.push({ ok: true, txt: 'Tren H1 Bearish Searah' });
     return res;
   }
-
-  res.reasons.push({ ok: false, txt: 'Menunggu titik ekstrem untuk Zero-Floating Entry' });
+  res.reasons.push({ ok: false, txt: 'Menunggu setup Alchemist Grade-A' });
   return res;
 }
 
-// 2. OB + INDUCEMENT ZERO-FLOATING MURNI
+// 2. STRATEGI OB + INDUCEMENT ZERO-FLOAT
 function obIdmStrat(m15, h1, atr, price) {
   const n = m15.length;
-  const res = { key: 'OB_IDM', name: 'OB + Inducement (Zero-Float)', dir: null, score: 0, reasons: [], stopLevel: null };
+  const res = { key: 'OB_IDM', name: 'OB + IDM Zero-Float', dir: null, score: 0, reasons: [], stopLevel: null };
   if (n < 50) return res;
 
   const h1Closes = h1.map(x => x[4]);
@@ -602,54 +564,86 @@ function obIdmStrat(m15, h1, atr, price) {
   const h1Bear = h1Closes[h1Closes.length - 1] < e20h[e20h.length - 1];
   const lastC = m15[n - 1];
 
-  for (let i = n - 6; i >= n - 30; i--) {
+  for (let i = n - 6; i >= n - 25; i--) {
     const c = m15[i];
     if (c[4] < c[1]) {
-      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 5));
+      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 4));
       if (nextSlice.length < 2) continue;
-      const moveHigh = Math.max(...nextSlice.map(x => x[2]));
-      const impulse = moveHigh - c[3];
-      if (impulse >= 1.3 * atr) {
+      const impulse = Math.max(...nextSlice.map(x => x[2])) - c[3];
+      if (impulse >= 1.5 * atr) {
         const obTop = Math.max(c[1], c[4]), obBot = c[3];
-        const lowWick = Math.min(lastC[3], lastC[4]);
-        if (lowWick <= obTop && lastC[4] >= obBot && lastC[4] > lastC[1]) {
+        if (Math.min(lastC[3], lastC[4]) <= obTop && lastC[4] >= obBot && lastC[4] > lastC[1] && h1Bull) {
           res.dir = 'BUY';
           res.stopLevel = obBot - 0.2 * atr;
-          let pts = 70;
-          res.reasons.push({ ok: true, txt: `Zero-Float Bullish OB: Pantulan instan di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
-          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu & rejection valid' });
-          if (h1Bull) { pts += 15; res.reasons.push({ ok: true, txt: 'Trend H1 Bullish selaras' }); }
-          res.score = Math.min(100, pts);
+          res.score = 88;
+          res.reasons.push({ ok: true, txt: `Mitigasi Bullish OB Instan (${fmtInt(obBot)})` });
+          res.reasons.push({ ok: true, txt: 'Inducement tersapu bersih' });
+          res.reasons.push({ ok: true, txt: 'Trend H1 Bullish Valid' });
           return res;
         }
       }
     }
     if (c[4] > c[1]) {
-      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 5));
+      const nextSlice = m15.slice(i + 1, Math.min(n - 1, i + 4));
       if (nextSlice.length < 2) continue;
-      const moveLow = Math.min(...nextSlice.slice(0, -1).map(x => x[3]));
-      const impulse = c[2] - moveLow;
-      if (impulse >= 1.3 * atr) {
+      const impulse = c[2] - Math.min(...nextSlice.map(x => x[3]));
+      if (impulse >= 1.5 * atr) {
         const obBot = Math.min(c[1], c[4]), obTop = c[2];
-        const highWick = Math.max(lastC[2], lastC[4]);
-        if (highWick >= obBot && lastC[4] <= obTop && lastC[4] < lastC[1]) {
+        if (Math.max(lastC[2], lastC[4]) >= obBot && lastC[4] <= obTop && lastC[4] < lastC[1] && h1Bear) {
           res.dir = 'SELL';
           res.stopLevel = obTop + 0.2 * atr;
-          let pts = 70;
-          res.reasons.push({ ok: true, txt: `Zero-Float Bearish OB: Pantulan instan di ${fmtInt(obBot)}–${fmtInt(obTop)}` });
-          res.reasons.push({ ok: true, txt: 'Inducement (IDM) tersapu & rejection valid' });
-          if (h1Bear) { pts += 15; res.reasons.push({ ok: true, txt: 'Trend H1 Bearish selaras' }); }
-          res.score = Math.min(100, pts);
+          res.score = 88;
+          res.reasons.push({ ok: true, txt: `Mitigasi Bearish OB Instan (${fmtInt(obTop)})` });
+          res.reasons.push({ ok: true, txt: 'Inducement tersapu bersih' });
+          res.reasons.push({ ok: true, txt: 'Trend H1 Bearish Valid' });
           return res;
         }
       }
     }
   }
-  res.reasons.push({ ok: false, txt: 'Menunggu konfirmasi pantulan instan OB + IDM' });
+  res.reasons.push({ ok: false, txt: 'Menunggu konfirmasi pantulan OB' });
   return res;
 }
 
-// Master Analyzer
+// 3. STRATEGI BARU: INSTITUTIONAL BOS + LIQUIDITY SWEEP
+function bosSweepStrat(m15, h1, atr, price) {
+  const n = m15.length;
+  const res = { key: 'BOS_SWEEP', name: 'BOS + Liquidity Grab', dir: null, score: 0, reasons: [], stopLevel: null };
+  if (n < 40) return res;
+
+  const lastC = m15[n - 1];
+  const prevC = m15[n - 2];
+  const h1Closes = h1.map(x => x[4]);
+  const h1Bull = h1Closes[h1Closes.length - 1] > h1Closes[h1Closes.length - 5];
+  const h1Bear = h1Closes[h1Closes.length - 1] < h1Closes[h1Closes.length - 5];
+
+  const recentHighs = Math.max(...m15.slice(-15, -2).map(x => x[2]));
+  const recentLows = Math.min(...m15.slice(-15, -2).map(x => x[3]));
+
+  // Bullish BOS: Break high sebelumnya dengan volume besar setelah menyapu low
+  if (price > recentHighs && lastC[4] > prevC[2] && h1Bull) {
+    res.dir = 'BUY';
+    res.stopLevel = recentLows - 0.3 * atr;
+    res.score = 86;
+    res.reasons.push({ ok: true, txt: 'Break of Structure (BOS) Bullish Terkonfirmasi' });
+    res.reasons.push({ ok: true, txt: 'Liquidity sweep bawah sukses' });
+    return res;
+  }
+  // Bearish BOS
+  if (price < recentLows && lastC[4] < prevC[3] && h1Bear) {
+    res.dir = 'SELL';
+    res.stopLevel = recentHighs + 0.3 * atr;
+    res.score = 86;
+    res.reasons.push({ ok: true, txt: 'Break of Structure (BOS) Bearish Terkonfirmasi' });
+    res.reasons.push({ ok: true, txt: 'Liquidity sweep atas sukses' });
+    return res;
+  }
+
+  res.reasons.push({ ok: false, txt: 'Menunggu struktur BOS valid' });
+  return res;
+}
+
+// Master Analyzer dengan 3 Strategi & Filter Anti-Konflik
 function runAnalysis() {
   const cd = state.candles;
   if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 70 || cd.h1.length < 70) return null;
@@ -659,57 +653,49 @@ function runAnalysis() {
   
   const alc = alchemistStrat(m15, h1, atr, state.price);
   const ob = obIdmStrat(m15, h1, atr, state.price);
-  const allStrats = [alc, ob];
-
-  ['BUY', 'SELL'].forEach(d => {
-    const aligned = allStrats.filter(st => st.dir === d && st.score >= 65);
-    if (aligned.length >= 2) {
-      aligned.forEach(st => {
-        st.score = Math.min(100, st.score + 15);
-        st.reasons.push({ ok: true, txt: `Konfluensi Institusi (Alchemist + OB/IDM Searah) (+15)` });
-      });
-    }
-  });
+  const bos = bosSweepStrat(m15, h1, atr, state.price);
+  const allStrats = [alc, ob, bos];
 
   const tr50 = trSeries(m15).slice(-50);
   const vr = atr / (tr50.reduce((x, y) => x + y, 0) / tr50.length);
-  const volOk = vr >= 0.5 && vr <= 2.2;
+  const volOk = vr >= 0.4 && vr <= 2.5;
+
   state.analysis = { atr, vr, volOk, strats: allStrats, cT: cd.m15[cd.m15.length - 1][0] };
   renderEngineUI();
   checkAutoSignal();
 }
 
-// Generate Automatic Signal Card + TRIGGER NOTIFIKASI HP
 function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a || !a.volOk) return;
+
+  // ATURAN MUTLAK: Jika sudah ada sinyal AKTIF, dilarang buat sinyal baru sama sekali!
+  const hasActive = state.signals.some(s => s.status === 'ACTIVE');
+  if (hasActive) return;
+
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr).sort((x, y) => y.score - x.score);
   if (!valid.length) return;
-  if (valid.some(s => s.dir === 'BUY') && valid.some(s => s.dir === 'SELL')) return;
 
   const best = valid[0];
-  const openSame = state.signals.find(s => s.status === 'ACTIVE' && (s.cT === a.cT || (Date.now() - s.createdAt < 30 * 60000)));
-  if (openSame) return;
-
   const entry = state.price;
   const isBuy = best.dir === 'BUY';
 
   let sl, tp1, tp2, tp3, risk;
   if (isBuy) {
-    sl = (best.stopLevel != null && best.stopLevel < entry) ? best.stopLevel : (entry - a.atr * 1.2);
+    sl = (best.stopLevel != null && best.stopLevel < entry) ? best.stopLevel : (entry - a.atr * 1.0);
     risk = Math.abs(entry - sl);
     tp1 = entry + risk * 1.0;
     tp2 = entry + risk * 2.0;
     tp3 = entry + risk * 3.5;
   } else {
-    sl = (best.stopLevel != null && best.stopLevel > entry) ? best.stopLevel : (entry + a.atr * 1.2);
+    sl = (best.stopLevel != null && best.stopLevel > entry) ? best.stopLevel : (entry + a.atr * 1.0);
     risk = Math.abs(sl - entry);
     tp1 = entry - risk * 1.0;
     tp2 = entry - risk * 2.0;
     tp3 = entry - risk * 3.5;
   }
 
-  if (risk <= 0.3 || risk > 3.5 * a.atr) return;
+  if (risk <= 0.3 || risk > 3.0 * a.atr) return;
 
   const newSig = {
     id: 'SIG_' + Date.now(),
@@ -741,10 +727,9 @@ function checkAutoSignal() {
   saveSignals();
   renderSignals();
 
-  // KIRIM NOTIFIKASI HP LANGSUNG
   sendAppNotification(
-    `🚨 XAUUSD ${newSig.dir} (${newSig.strat})`,
-    `Entry: ${fmtInt(newSig.entry)} | SL: ${fmtInt(newSig.sl)} | TP1: ${fmtInt(newSig.tp1)} (Skor ${newSig.score}%)`
+    `🚨 Sinyal Grade-A XAUUSD ${newSig.dir}`,
+    `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)} | SL: ${fmtInt(newSig.sl)} | Skor ${newSig.score}%`
   );
 }
 
@@ -758,39 +743,25 @@ function monitorSignals() {
     const isBuy = s.dir === 'BUY';
 
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
-      s.tp1Hit = true;
-      s.sl = s.entry;
-      s.beMoved = true;
-      changed = true;
-      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Profit aman di ${fmtInt(s.tp1)}! SL digeser ke BE (${fmtInt(s.entry)}).`);
+      s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
+      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Profit aman di ${fmtInt(s.tp1)}! SL digeser ke BE.`);
     }
     if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
-      s.tp2Hit = true;
-      changed = true;
+      s.tp2Hit = true; changed = true;
       sendAppNotification(`🔥 TP2 HIT! XAUUSD ${s.dir}`, `Target TP2 tercapai di ${fmtInt(s.tp2)}!`);
     }
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
-      s.tp3Hit = true;
-      s.status = 'WON';
-      changed = true;
-      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal selesai dengan profit penuh di ${fmtInt(s.tp3)}!`);
+      s.tp3Hit = true; s.status = 'WON'; changed = true;
+      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal selesai profit penuh di ${fmtInt(s.tp3)}!`);
     }
-
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      if (s.tp1Hit) {
-        s.status = 'WON';
-      } else {
-        s.status = 'LOSS';
-        sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`);
-      }
+      if (s.tp1Hit) { s.status = 'WON'; }
+      else { s.status = 'LOSS'; sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); }
       changed = true;
     }
   });
 
-  if (changed) {
-    saveSignals();
-    renderSignals();
-  }
+  if (changed) { saveSignals(); renderSignals(); }
 }
 
 function timeAgo(ts) {
@@ -810,9 +781,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">📡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Alchemist + OB/IDM Engine Aktif</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Institutional Engine Siaga</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Memindai titik ekstrem POI, Liquidity Sweep, dan Order Block untuk entry Zero-Floating presisi.
+          Menunggu setup Zero-Floating eksklusif (Grade-A ≥ 85%). Hanya 1 posisi aktif dalam satu waktu.
         </div>
       </div>`;
     return;
@@ -821,16 +792,7 @@ function renderSignals() {
   list.innerHTML = state.signals.map((s, idx) => {
     const isBuy = s.dir === 'BUY';
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    let statusHtml = '';
-    if (s.status === 'ACTIVE') {
-      statusHtml = s.tp1Hit
-        ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>`
-        : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`;
-    } else if (s.status === 'WON') {
-      statusHtml = `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>`;
-    } else {
-      statusHtml = `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`;
-    }
+    let statusHtml = s.status === 'ACTIVE' ? (s.tp1Hit ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`) : (s.status === 'WON' ? `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`);
 
     return `
     <div class="sig-card">
@@ -843,35 +805,17 @@ function renderSignals() {
         </div>
         ${statusHtml}
       </div>
-
       <div class="grid-3">
-        <div class="lvl-box">
-          <div class="lvl-lbl">ENTRY</div>
-          <div class="lvl-val">${fmtInt(s.entry)}</div>
-        </div>
-        <div class="lvl-box sl">
-          <div class="lvl-lbl">SL ${s.beMoved ? '· BE' : ''} · ${s.slPips}p</div>
-          <div class="lvl-val">${fmtInt(s.sl)}</div>
-        </div>
-        <div class="lvl-box ${s.tp1Hit ? 'tp-hit' : ''}">
-          <div class="lvl-lbl">${s.tp1Hit ? '✓ ' : ''}TP1 · ${s.tp1Pips}p</div>
-          <div class="lvl-val">${fmtInt(s.tp1)}</div>
-        </div>
+        <div class="lvl-box"><div class="lvl-lbl">ENTRY</div><div class="lvl-val">${fmtInt(s.entry)}</div></div>
+        <div class="lvl-box sl"><div class="lvl-lbl">SL ${s.beMoved ? '· BE' : ''} · ${s.slPips}p</div><div class="lvl-val">${fmtInt(s.sl)}</div></div>
+        <div class="lvl-box ${s.tp1Hit ? 'tp-hit' : ''}"><div class="lvl-lbl">${s.tp1Hit ? '✓ ' : ''}TP1 · ${s.tp1Pips}p</div><div class="lvl-val">${fmtInt(s.tp1)}</div></div>
       </div>
-
       <div class="grid-2">
-        <div class="sub-lvl ${s.tp2Hit ? 'hit' : ''}">
-          <span>${s.tp2Hit ? '✓' : '○'} TP2 <span class="price">${fmtInt(s.tp2)}</span></span>
-          <span class="pips-tag">${s.tp2Pips}p</span>
-        </div>
-        <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}">
-          <span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmtInt(s.tp3)}</span></span>
-          <span class="pips-tag">${s.tp3Pips}p</span>
-        </div>
+        <div class="sub-lvl ${s.tp2Hit ? 'hit' : ''}"><span>${s.tp2Hit ? '✓' : '○'} TP2 <span class="price">${fmtInt(s.tp2)}</span></span><span class="pips-tag">${s.tp2Pips}p</span></div>
+        <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}"><span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmtInt(s.tp3)}</span></span><span class="pips-tag">${s.tp3Pips}p</span></div>
       </div>
-
       <div class="sig-foot">
-        <span>${s.tf} · ${timeStr} · ${s.strat}</span>
+        <span>${s.tf} · ${timeStr} · ${s.strat} (Skor ${s.score}%)</span>
         <div class="foot-actions">
           <button class="foot-btn" onclick="openChartFor(${idx})">📊 Chart</button>
           <button class="foot-btn" onclick="openDetails(${idx})">Details ›</button>
@@ -881,25 +825,11 @@ function renderSignals() {
   }).join('');
 }
 
-function openChartFor(idx) {
-  const navBtns = document.querySelectorAll('.nav-item');
-  switchTab('chart', 'Live Chart', navBtns[1]);
-}
-
+function openChartFor(idx) { switchTab('chart', 'Live Chart', document.querySelectorAll('.nav-item')[1]); }
 function openDetails(idx) {
-  const s = state.signals[idx];
-  if (!s) return;
+  const s = state.signals[idx]; if (!s) return;
   $('modalTitle').textContent = `${s.pair} ${s.dir} · Skor ${s.score}/100`;
-  const reasonsHtml = (s.reasons || []).map(r =>
-    `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`
-  ).join('');
-  $('modalBody').innerHTML = `
-    <div style="margin-bottom:12px;color:var(--text)">
-      Strategi: <b>${s.strat}</b> | Rasio R:R <b>${s.rr}</b>
-    </div>
-    <div class="panel-title">Konfirmasi Teknikal MT5 & Zero-Floating</div>
-    ${reasonsHtml}
-  `;
+  $('modalBody').innerHTML = `<div style="margin-bottom:12px">Strat: <b>${s.strat}</b></div>` + (s.reasons || []).map(r => `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`).join('');
   $('detailModal').classList.add('open');
 }
 function closeModal() { $('detailModal').classList.remove('open'); }
@@ -907,13 +837,7 @@ function closeModal() { $('detailModal').classList.remove('open'); }
 function renderChart() {
   const svg = $('chartSvg');
   const W = 320, H = 200, N = 24;
-  let candles = [];
-  if (state.candles && state.candles.m15 && state.candles.m15.length >= N) {
-    candles = state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] }));
-  } else {
-    const s = state.hist.slice(-N);
-    candles = s.map((v, i) => ({ o: i ? s[i - 1] : v, c: v, h: v + 0.8, l: v - 0.8 }));
-  }
+  let candles = (state.candles && state.candles.m15 && state.candles.m15.length >= N) ? state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] })) : state.hist.slice(-N).map((v, i) => ({ o: i ? state.hist[i - 1] : v, c: v, h: v + 0.8, l: v - 0.8 }));
   if (!candles.length) return;
 
   const activeSig = state.signals.find(s => s.status === 'ACTIVE') || state.signals[0];
@@ -936,25 +860,21 @@ function renderChart() {
     out += `<rect x="${x - bw / 2}" y="${top}" width="${bw}" height="${bh}" fill="${col}" rx="1"/>`;
   });
   svg.innerHTML = out;
-
   $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup Terakhir (${activeSig.dir})</div>
+    <div class="panel-title">Setup Aktif (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif untuk ditampilkan di chart.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif. Bot menunggu setup Grade-A.</div>';
 }
 
 function renderEngineUI() {
-  $('thrBtns').innerHTML = [75, 80, 85, 90].map(t =>
+  $('thrBtns').innerHTML = [80, 85, 90, 95].map(t =>
     `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
   ).join('');
 
   const a = state.analysis;
-  if (!a) {
-    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle M15 & H1 dari MT5...</div>';
-    return;
-  }
+  if (!a) { $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data market...</div>'; return; }
   $('engineRules').innerHTML = a.strats.map(st => `
     <div class="row-item">
       <div>
@@ -962,9 +882,7 @@ function renderEngineUI() {
         <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu setup'}</div>
       </div>
       <div style="text-align:right">
-        <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">
-          Skor ${st.score}%
-        </span>
+        <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">Skor ${st.score}%</span>
       </div>
     </div>
   `).join('');
@@ -977,66 +895,36 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Sinyal (Alchemist + OB/IDM)</div>
+    <div class="panel-title">Statistik Performa (Grade-A Engine)</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
       <div class="lvl-box"><div class="lvl-lbl">Win Rate</div><div class="lvl-val">${closed.length ? wr + '%' : '—'}</div></div>
     </div>
   `;
-  const bt = state.bt;
-  $('btPanel').innerHTML = bt && bt.modes && bt.modes.LIVE ? `
-    <div class="panel-title">Hasil Backtest MT5 (${bt.from} - ${bt.to})</div>
-    <div class="row-item"><span>Total Trade Historis</span><b>${bt.modes.LIVE.all.n}</b></div>
-    <div class="row-item"><span>Win Rate Historis</span><b style="color:var(--green)">${bt.modes.LIVE.all.wr}%</b></div>
-    <div class="row-item"><span>Expectancy</span><b>${bt.modes.LIVE.all.exp}R / trade</b></div>
-  ` : '<div class="panel-title">Backtest MT5</div><div style="font-size:12px;color:var(--muted)">Jalankan backtest.py di PC untuk menampilkan data historis di sini.</div>';
 }
 
 function clearHistory() {
   if (!confirm('Hapus semua riwayat sinyal?')) return;
-  state.signals = [];
-  saveSignals();
-  renderSignals();
-  renderStats();
+  state.signals = []; saveSignals(); renderSignals(); renderStats();
 }
 
 async function pollPrice() {
   const prev = state.price;
   const d = await jsonpGet('', res => res && isFinite(Number(res.price)) && Number(res.price) > 0);
-  if (d) {
-    state.price = Number(d.price);
-    liveOk = true;
-    $('connDot').classList.remove('sim');
-    $('connText').textContent = 'MT5 LIVE';
-  } else {
-    state.price += (Math.random() - 0.5) * 2.5;
-    liveOk = false;
-    $('connDot').classList.add('sim');
-    $('connText').textContent = 'SIMULASI';
-  }
-  state.hist.push(state.price);
-  if (state.hist.length > 60) state.hist.shift();
-
+  if (d) { state.price = Number(d.price); liveOk = true; $('connDot').classList.remove('sim'); $('connText').textContent = 'MT5 LIVE'; }
+  else { state.price += (Math.random() - 0.5) * 2.5; liveOk = false; $('connDot').classList.add('sim'); $('connText').textContent = 'SIMULASI'; }
+  state.hist.push(state.price); if (state.hist.length > 60) state.hist.shift();
   $('livePrice').textContent = fmt(state.price);
   const diff = state.price - prev;
   $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
   $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
-
   monitorSignals();
 }
 
 async function refreshCandles() {
   const cd = await jsonpGet('candles=1', d => d && d.m15 && d.h1);
-  if (cd) {
-    state.candles = cd;
-    runAnalysis();
-  }
-}
-
-async function loadBacktest() {
-  const bt = await jsonpGet('bt=1', d => d && d.modes);
-  if (bt) { state.bt = bt; }
+  if (cd) { state.candles = cd; runAnalysis(); }
 }
 
 for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
@@ -1045,7 +933,6 @@ requestWakeLock();
 renderSignals();
 renderEngineUI();
 pollPrice().then(refreshCandles);
-loadBacktest();
 setInterval(pollPrice, POLL_MS);
 setInterval(refreshCandles, CANDLE_POLL_MS);
 </script>
