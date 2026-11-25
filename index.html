@@ -712,12 +712,13 @@ function checkAutoSignal() {
   if (!valid.length) return;
 
   valid.forEach(best => {
-    const alreadyExists = state.signals.some(s => s.status === 'ACTIVE' && s.strat === best.name && s.cT === a.cT);
-    if (alreadyExists) return;
+    // Izinkan multi-sinyal (maksimal 3 sinyal aktif bersamaan)
+    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
+    if (recentSignals.length >= 3) return;
 
-    // Batasi maksimal 1 posisi aktif agar tidak spam
-    const activeCount = state.signals.filter(s => s.status === 'ACTIVE').length;
-    if (activeCount >= 1) return;
+    // Cek duplikasi agar tidak membuka sinyal di harga yang terlalu dekat persis
+    const duplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 2.0);
+    if (duplicate) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
@@ -754,7 +755,7 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🚨 Sinyal XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🚨 Sinyal Baru XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
