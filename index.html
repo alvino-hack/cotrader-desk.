@@ -774,30 +774,49 @@ function monitorSignals() {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
-    // Proteksi Ekstra: Jika Counter-Trend dan profit sudah mencapai 8 pips, langsung kunci BEP
-    if (s.isCounter && !s.tp1Hit) {
+    // 1. Proteksi Cepat Khusus Counter-Trend: Jika profit sudah >= 8 pips, langsung geser SL ke Entry (BE+)
+    if (s.isCounter && !s.tp1Hit && !s.beMoved) {
       const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
       if (pipsInProfit >= 8) {
-        s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
-        sendAppNotification(`🛡️ COUNTER-TREND SECURED! XAUUSD ${s.dir}`, `Profit awal tercapai! SL digeser otomatis ke Entry (BE+).`);
+        s.sl = s.entry; 
+        s.beMoved = true; 
+        changed = true;
+        sendAppNotification(`🛡️ BE+ SECURED! XAUUSD ${s.dir}`, `Profit +${pipsInProfit.toFixed(1)} pips! SL otomatis dikunci ke harga Entry (${fmtInt(s.entry)}).`);
       }
     }
 
+    // 2. Jika harga menyentuh TP1
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
-      s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
-      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Profit aman di ${fmtInt(s.tp1)}! SL digeser ke BE.`);
+      s.tp1Hit = true; 
+      s.sl = s.entry; 
+      s.beMoved = true; 
+      changed = true;
+      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Target TP1 tercapai di ${fmtInt(s.tp1)}! SL dikunci aman ke Entry.`);
     }
+
+    // 3. Jika harga menyentuh TP2
     if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
-      s.tp2Hit = true; changed = true;
+      s.tp2Hit = true; 
+      changed = true;
       sendAppNotification(`🔥 TP2 HIT! XAUUSD ${s.dir}`, `Target TP2 tercapai di ${fmtInt(s.tp2)}!`);
     }
+
+    // 4. Jika harga menyentuh TP3 (Full Win)
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
-      s.tp3Hit = true; s.status = 'WON'; changed = true;
+      s.tp3Hit = true; 
+      s.status = 'WON'; 
+      changed = true;
       sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal selesai profit penuh di ${fmtInt(s.tp3)}!`);
     }
+
+    // 5. Cek Stop Loss (SL Hit)
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      if (s.tp1Hit || s.beMoved) { s.status = 'WON'; }
-      else { s.status = 'LOSS'; sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); }
+      if (s.tp1Hit || s.beMoved) { 
+        s.status = 'WON'; 
+      } else { 
+        s.status = 'LOSS'; 
+        sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); 
+      }
       changed = true;
     }
   });
