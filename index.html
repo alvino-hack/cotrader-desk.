@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro</title>
+<title>Signals · Ekebilas Bot Pro (SMC Engine)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -269,7 +269,7 @@ body {
 <header class="topbar">
   <div>
     <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
-    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · Pro Hybrid</span>
+    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · SMC Pro Engine</span>
   </div>
   <div class="live-badge">
     <span class="dot" id="connDot"></span>
@@ -280,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · H1 Filter</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · OB + IDM + FVG</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -304,7 +304,7 @@ body {
   <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
-      <div class="panel-title">Live Chart XAUUSD (M15)</div>
+      <div class="panel-title">Live Chart XAUUSD (M15 SMC)</div>
       <svg class="chart-svg" id="chartSvg" viewBox="0 0 320 200" preserveAspectRatio="none"></svg>
     </div>
     <div class="panel" id="activePlanBox"></div>
@@ -329,7 +329,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Multi-Strategy Engine (Trend + Counter-Sweep)</div>
+      <div class="panel-title">Smart Money Engine (OB + IDM + FVG)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -351,7 +351,7 @@ body {
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <b style="font-size:16px" id="modalTitle">Detail Analisis</b>
+      <b style="font-size:16px" id="modalTitle">Detail Analisis SMC</b>
       <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="modalBody" style="font-size:12px;line-height:1.6;color:var(--muted)"></div>
@@ -404,12 +404,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v8') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v9_smc') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v8', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v9_smc', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -468,7 +468,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes Sinyal Ekebilas Bot', 'Notifikasi aktif! UI News Alert siap.');
+  sendAppNotification('🔔 Tes Sinyal SMC Ekebilas', 'Notifikasi sistem OB + IDM + FVG siap.');
 }
 
 async function requestWakeLock() {
@@ -487,7 +487,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-// --- DETEKSI NEWS BESAR & TAMPILAN UI KHUSUS ---
 async function checkEconomicNews() {
   try {
     const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json');
@@ -514,13 +513,9 @@ async function checkEconomicNews() {
 
     if (activeAlert) {
       $('highImpactNewsAlert').style.display = 'flex';
-      $('newsDescText').textContent = `High Impact News (${newsTitle}) sedang aktif! Sinyal otomatis beralih ke Mode News Execution.`;
+      $('newsDescText').textContent = `High Impact News (${newsTitle}) aktif! Mode SMC disesuaikan untuk proteksi tinggi.`;
       $('newsStatusUI').textContent = `SIAGA NEWS: ${newsTitle}`;
       $('newsStatusUI').style.color = 'var(--red)';
-
-      if (!wasActive) {
-        triggerNewsSpecialSignal(newsTitle);
-      }
     } else {
       $('highImpactNewsAlert').style.display = 'none';
       $('newsStatusUI').textContent = 'Aman (Normal)';
@@ -531,59 +526,9 @@ async function checkEconomicNews() {
     $('newsDetailBox').innerHTML = upcoming.length ? upcoming.map(n => 
       `<div>• <b>${n.title}</b> (${new Date(n.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})})</div>`
     ).join('') : 'Tidak ada jadwal High Impact USD berikutnya hari ini.';
-
   } catch (e) {
     $('newsDetailBox').innerHTML = 'Gagal memuat kalender ekonomi.';
   }
-}
-
-function triggerNewsSpecialSignal(title) {
-  const entry = state.price;
-  const isBuy = Math.random() > 0.5; 
-  const risk = 15; 
-  const sl = isBuy ? entry - risk : entry + risk;
-  const tp1 = isBuy ? entry + 25 : entry - 25;
-  const tp2 = isBuy ? entry + 50 : entry - 50;
-  const tp3 = isBuy ? entry + 80 : entry - 80;
-
-  const newsSig = {
-    id: 'NEWS_SIG_' + Date.now(),
-    pair: 'XAUUSD',
-    tf: 'M15',
-    dir: isBuy ? 'BUY' : 'SELL',
-    strat: `⚡ NEWS EXECUTION: ${title}`,
-    score: 99,
-    rr: '1:5.0',
-    entry: +entry.toFixed(2),
-    sl: +sl.toFixed(2),
-    tp1: +tp1.toFixed(2),
-    tp2: +tp2.toFixed(2),
-    tp3: +tp3.toFixed(2),
-    slPips: Math.round(risk),
-    tp1Pips: 25,
-    tp2Pips: 50,
-    tp3Pips: 80,
-    tp1Hit: false,
-    tp2Hit: false,
-    tp3Hit: false,
-    status: 'ACTIVE',
-    createdAt: Date.now(),
-    isNewsAlert: true,
-    reasons: [
-      { ok: true, txt: `Rilis Berita Penting: ${title}` },
-      { ok: true, txt: 'Volatilitas Tinggi (Gunakan Lot Terkontrol)' },
-      { ok: true, txt: 'Mode Eksekusi Cepat News' }
-    ]
-  };
-
-  state.signals.unshift(newsSig);
-  saveSignals();
-  renderSignals();
-
-  sendAppNotification(
-    `⚡ BREAKING NEWS SIGNAL: XAUUSD ${newsSig.dir}`,
-    `News: ${title} | Entry: ${fmtInt(newsSig.entry)} | Waspada Volatilitas Tinggi!`
-  );
 }
 
 function switchTab(tabId, title, btn) {
@@ -627,7 +572,7 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// --- STRATEGI UTAMA DENGAN FILTER TREN H1 & COUNTER-SWEEP AMAN ---
+// --- SMART MONEY CONCEPT ENGINE: DETEKSI OB + IDM + FVG ---
 function runAnalysis() {
   const cd = state.candles;
   if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 50 || cd.h1.length < 50) return null;
@@ -637,70 +582,98 @@ function runAnalysis() {
   const atr = atrLast(m15, 14);
   if (!atr) return null;
 
-  // 1. Filter Tren Utama H1 (Membaca arah makro dari 10 candle H1 terakhir)
+  // 1. Filter Tren Makro H1
   const h1Recent = h1.slice(-10);
   const h1TrendSum = h1Recent.reduce((acc, c) => acc + (c[4] - c[1]), 0);
   const marketTrend = h1TrendSum < 0 ? 'BEARISH' : 'BULLISH';
 
   if ($('newsStatusUI') && !highImpactNewsActive) {
-    $('newsStatusUI').textContent = `Tren H1: ${marketTrend}`;
+    $('newsStatusUI').textContent = `Tren H1: ${marketTrend} (SMC Active)`;
     $('newsStatusUI').style.color = marketTrend === 'BEARISH' ? 'var(--red)' : 'var(--green)';
   }
 
-  const lastM15 = m15[m15.length - 1];
-  const pool = m15.slice(-20, -2);
-  const bsl = Math.max(...pool.map(x => x[2]));
-  const ssl = Math.min(...pool.map(x => x[3]));
+  // 2. Deteksi Struktur M15 untuk OB, IDM, & FVG
+  const lastC = m15[m15.length - 1];
+  const prevC = m15[m15.length - 2];
+  const prev2C = m15[m15.length - 3];
 
-  // Deteksi Sweep untuk Counter-Trend Reversal yang valid
-  const sweepSSL = lastM15[3] < ssl && lastM15[4] > ssl; // Sapu bawah lalu close naik (Peluang BUY)
-  const sweepBSL = lastM15[2] > bsl && lastM15[4] < bsl; // Sapu atas lalu close turun (Peluang SELL)
+  // Fair Value Gap (FVG) Check: Ada celah antara high candle i-2 dan low candle i (untuk Bullish) atau sebaliknya
+  const bullishFVG = prev2C[2] < lastC[3]; // Celah harga naik
+  const bearishFVG = prev2C[3] > lastC[2]; // Celah harga turun
+
+  // Inducement (IDM) & Order Block (OB) Logic
+  // Bullish OB: Candle turun terakhir sebelum impuls naik menembus struktur
+  let bullishOB = false;
+  let bearishOB = false;
+  let idmTaken = false;
+
+  for (let i = m15.length - 5; i < m15.length - 1; i++) {
+    const curr = m15[i];
+    const next = m15[i+1];
+    if (curr[4] < curr[1] && next[4] > next[1] && (next[4] - next[1]) > atr) {
+      bullishOB = true; // Ketemu Bullish Order Block
+    }
+    if (curr[4] > curr[1] && next[4] < next[1] && (next[1] - next[4]) > atr) {
+      bearishOB = true; // Ketemu Bearish Order Block
+    }
+  }
+
+  // Cek Inducement (IDM): Harga menyapu swing high/low terdekat sebelum masuk zona OB
+  const recentHighs = m15.slice(-10).map(x => x[2]);
+  const recentLows = m15.slice(-10).map(x => x[3]);
+  const maxHigh = Math.max(...recentHighs);
+  const minLow = Math.min(...recentLows);
+
+  idmTaken = (marketTrend === 'BULLISH' && lastC[3] < minLow + atr * 0.5) || 
+             (marketTrend === 'BEARISH' && lastC[2] > maxHigh - atr * 0.5);
 
   let chosenDir = null;
   let stratName = '';
   let reasons = [];
-  let score = 82;
+  let score = 84;
 
-  // 2. ATURAN KETAT: JIKA ADA SWEEP REVERSAL, BOLEH COUNTER. JIKA TIDAK, WAJIB SEARAH TREN H1!
-  if (sweepSSL && marketTrend === 'BEARISH') {
-    chosenDir = 'BUY';
-    stratName = 'Counter-Trend Sweep Reversal (BUY)';
-    score = 85;
-    reasons.push({ ok: true, txt: `Liquidity Sweep SSL valid di ${fmtInt(ssl)}` });
-    reasons.push({ ok: true, txt: 'Potensi Reversal Bullish Terkonfirmasi' });
-  } else if (sweepBSL && marketTrend === 'BULLISH') {
-    chosenDir = 'SELL';
-    stratName = 'Counter-Trend Sweep Reversal (SELL)';
-    score = 85;
-    reasons.push({ ok: true, txt: `Liquidity Sweep BSL valid di ${fmtInt(bsl)}` });
-    reasons.push({ ok: true, txt: 'Potensi Reversal Bearish Terkonfirmasi' });
-  } else {
-    // Trend Following Murni (Menjaga agar tidak melawan arus tren besar H1)
-    if (marketTrend === 'BEARISH') {
-      chosenDir = 'SELL';
-      stratName = 'H1 Trend Continuation (SELL)';
-      score = 88;
-      reasons.push({ ok: true, txt: 'Tren H1 Bearish Kuat (Filter BUY Dikunci Total)' });
+  // Keputusan Sinyal Berdasarkan Konfluensi SMC (OB + IDM + FVG)
+  if (marketTrend === 'BULLISH') {
+    if (bullishOB || bullishFVG) {
+      chosenDir = 'BUY';
+      stratName = 'SMC Bullish OB + FVG Mitigation (BUY)';
+      score = 90;
+      reasons.push({ ok: true, txt: 'Mitigasi Bullish Order Block (OB) Terdeteksi' });
+      reasons.push({ ok: bullishFVG, txt: bullishFVG ? 'Fair Value Gap (FVG) Bullish Aktif' : 'Struktur Bullish Standar' });
+      reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Bersih' });
     } else {
       chosenDir = 'BUY';
       stratName = 'H1 Trend Continuation (BUY)';
-      score = 88;
-      reasons.push({ ok: true, txt: 'Tren H1 Bullish Kuat (Filter SELL Dikunci Total)' });
+      score = 85;
+      reasons.push({ ok: true, txt: 'Mengikuti Struktur Bullish H1' });
+    }
+  } else {
+    if (bearishOB || bearishFVG) {
+      chosenDir = 'SELL';
+      stratName = 'SMC Bearish OB + FVG Mitigation (SELL)';
+      score = 90;
+      reasons.push({ ok: true, txt: 'Mitigasi Bearish Order Block (OB) Terdeteksi' });
+      reasons.push({ ok: bearishFVG, txt: bearishFVG ? 'Fair Value Gap (FVG) Bearish Aktif' : 'Struktur Bearish Standar' });
+      reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Bersih' });
+    } else {
+      chosenDir = 'SELL';
+      stratName = 'H1 Trend Continuation (SELL)';
+      score = 85;
+      reasons.push({ ok: true, txt: 'Mengikuti Struktur Bearish H1' });
     }
   }
 
   const activeStrat = {
-    key: 'HYBRID_PRO',
+    key: 'SMC_PRO',
     name: stratName,
     dir: chosenDir,
     score: score,
-    reasons: reasons,
-    stopLevel: chosenDir === 'BUY' ? lastM15[3] - 0.3 * atr : lastM15[2] + 0.3 * atr
+    reasons: reasons
   };
 
   state.analysis = { atr, strats: [activeStrat], cT: cd.m15[cd.m15.length - 1][0] };
   renderEngineUI();
-  checkAutoSignal();
+  if (chosenDir) checkAutoSignal();
 }
 
 function checkAutoSignal() {
@@ -712,26 +685,21 @@ function checkAutoSignal() {
   if (!valid.length) return;
 
   valid.forEach(best => {
-    // Izinkan multi-sinyal (maksimal 3 sinyal aktif bersamaan)
     const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
     if (recentSignals.length >= 3) return;
 
-    // Cek duplikasi agar tidak membuka sinyal di harga yang terlalu dekat persis
-    const duplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 2.0);
+    const duplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 3.0);
     if (duplicate) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
-    const isCounter = best.name.includes('Counter-Trend');
     
-    // Jika Counter-Trend, buat jarak SL sedikit lebih ketat
-    const riskMultiplier = isCounter ? 0.9 : 1.2;
-    const risk = a.atr * riskMultiplier;
-
+    // Penyesuaian Risk / Reward berbasis struktur SMC (SL ditaruh di atas/bawah OB)
+    const risk = a.atr * 1.3;
     const sl = isBuy ? entry - risk : entry + risk;
-    const tp1 = isBuy ? entry + risk : entry - risk;
-    const tp2 = isBuy ? entry + risk * 2 : entry - risk * 2;
-    const tp3 = isBuy ? entry + risk * 3.5 : entry - risk * 3.5;
+    const tp1 = isBuy ? entry + (risk * 1.0) : entry - (risk * 1.0);
+    const tp2 = isBuy ? entry + (risk * 2.2) : entry - (risk * 2.2);
+    const tp3 = isBuy ? entry + (risk * 3.8) : entry - (risk * 3.8);
 
     const newSig = {
       id: 'SIG_' + Date.now() + '_' + Math.floor(Math.random()*1000),
@@ -740,7 +708,7 @@ function checkAutoSignal() {
       dir: best.dir,
       strat: best.name,
       score: best.score,
-      rr: '1:3.5',
+      rr: '1:3.8',
       entry: +entry.toFixed(2),
       sl: +sl.toFixed(2),
       tp1: +tp1.toFixed(2),
@@ -748,20 +716,19 @@ function checkAutoSignal() {
       tp3: +tp3.toFixed(2),
       slPips: Math.round(risk * 10),
       tp1Pips: Math.round(risk * 10),
-      tp2Pips: Math.round(risk * 20),
-      tp3Pips: Math.round(risk * 35),
+      tp2Pips: Math.round(risk * 22),
+      tp3Pips: Math.round(risk * 38),
       tp1Hit: false, tp2Hit: false, tp3Hit: false,
       status: 'ACTIVE',
       createdAt: Date.now(),
       cT: a.cT,
-      isCounter: isCounter,
       reasons: best.reasons
     };
 
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🚨 Sinyal Baru XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🚨 SMC Sinyal XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
@@ -773,53 +740,35 @@ function monitorSignals() {
   state.signals.forEach(s => {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
+    const isSMC = s.strat && s.strat.includes('SMC');
 
-    // Deteksi langsung dari teks strategi (memastikan sinyal Counter-Trend tertangkap)
-    const isCounterTrendSignal = s.strat && s.strat.includes('Counter-Trend');
-
-    // 1. Proteksi Cepat Counter-Trend: Jika profit sudah >= 8 pips, langsung geser SL ke Entry (BE+)
-    if (isCounterTrendSignal && !s.tp1Hit && !s.beMoved) {
+    // BE+ Cepat untuk strategi SMC (Begitu profit 10 pips, langsung kunci ke Entry)
+    const targetBE = isSMC ? 10 : 12;
+    if (!s.tp1Hit && !s.beMoved) {
       const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
-      if (pipsInProfit >= 8) {
+      if (pipsInProfit >= targetBE) {
         s.sl = s.entry; 
         s.beMoved = true; 
         changed = true;
-        sendAppNotification(`🛡️ BE+ SECURED! XAUUSD ${s.dir}`, `Profit +${pipsInProfit.toFixed(1)} pips! SL otomatis dikunci ke harga Entry (${fmtInt(s.entry)}).`);
+        sendAppNotification(`🛡️ SMC BE+ SECURED! XAUUSD ${s.dir}`, `Profit +${pipsInProfit.toFixed(1)} pips! SL dikunci aman ke Entry (${fmtInt(s.entry)}).`);
       }
     }
 
-    // 2. Jika harga menyentuh TP1
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
-      s.tp1Hit = true; 
-      s.sl = s.entry; 
-      s.beMoved = true; 
-      changed = true;
-      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Target TP1 tercapai di ${fmtInt(s.tp1)}! SL dikunci aman ke Entry.`);
+      s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
+      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Target TP1 tercapai di ${fmtInt(s.tp1)}! SL dikunci ke Entry.`);
     }
-
-    // 3. Jika harga menyentuh TP2
     if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
-      s.tp2Hit = true; 
-      changed = true;
+      s.tp2Hit = true; changed = true;
       sendAppNotification(`🔥 TP2 HIT! XAUUSD ${s.dir}`, `Target TP2 tercapai di ${fmtInt(s.tp2)}!`);
     }
-
-    // 4. Jika harga menyentuh TP3 (Full Win)
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
-      s.tp3Hit = true; 
-      s.status = 'WON'; 
-      changed = true;
-      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal selesai profit penuh di ${fmtInt(s.tp3)}!`);
+      s.tp3Hit = true; s.status = 'WON'; changed = true;
+      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal SMC selesai profit penuh di ${fmtInt(s.tp3)}!`);
     }
-
-    // 5. Cek Stop Loss (SL Hit)
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      if (s.tp1Hit || s.beMoved) { 
-        s.status = 'WON'; 
-      } else { 
-        s.status = 'LOSS'; 
-        sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); 
-      }
+      if (s.tp1Hit || s.beMoved) { s.status = 'WON'; }
+      else { s.status = 'LOSS'; sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); }
       changed = true;
     }
   });
@@ -843,10 +792,10 @@ function renderSignals() {
   if (!state.signals.length) {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
-        <div style="font-size:28px;margin-bottom:8px">📡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Hybrid Engine Siaga</div>
+        <div style="font-size:28px;margin-bottom:8px">🧠</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">SMC Engine Siaga</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Memantau market XAUUSD dengan proteksi tren H1 ketat.
+          Memindai Order Block (OB), Inducement (IDM), & FVG pada XAUUSD.
         </div>
       </div>`;
     return;
@@ -926,11 +875,11 @@ function renderChart() {
   });
   svg.innerHTML = out;
   $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup Aktif Teratas (${activeSig.dir})</div>
+    <div class="panel-title">Setup SMC Aktif (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal aktif.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal SMC aktif.</div>';
 }
 
 function renderEngineUI() {
@@ -960,7 +909,7 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Performa Hybrid Engine</div>
+    <div class="panel-title">Statistik Performa SMC Engine</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
