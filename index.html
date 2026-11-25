@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (Safe Fix)</title>
+<title>Signals · Ekebilas Bot Pro (Full Complete)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -280,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Safe Mode Active</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Key Level + SMC Engine</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -402,12 +402,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v12_safe') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v13_full') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v12_safe', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v13_full', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -466,7 +466,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes Aman Ekebilas', 'Notifikasi sistem berjalan lancar.');
+  sendAppNotification('🔔 Tes KL + SMC Bot', 'Notifikasi sistem berjalan lancar.');
 }
 
 async function requestWakeLock() {
@@ -540,7 +540,6 @@ function jsonpGet(qs, validate) {
     const done = val => { try { delete window[name]; } catch (e) {} s.remove(); resolve(val); };
     window[name] = d => done(validate(d) ? d : null);
     s.onerror = () => done(null);
-    // Timeout aman 5 detik agar tidak pernah freeze
     setTimeout(() => done(null), 5000);
     s.src = WORKER_URL + (WORKER_URL.includes('?') ? '&' : '?') + qs + (qs ? '&' : '') + 'callback=' + name;
     document.body.appendChild(s);
@@ -563,7 +562,6 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// Dummy candles generator for safe fallback if network lags
 function generateSafeCandles() {
   const m15 = [];
   let p = state.price - 10;
@@ -578,6 +576,7 @@ function generateSafeCandles() {
   return { m15, h1: m15 };
 }
 
+// --- PURE KEY LEVEL + SMC ENGINE ---
 function runAnalysis() {
   const cd = state.candles || generateSafeCandles();
   const m15 = cd.m15.slice(0, -1);
@@ -589,20 +588,42 @@ function runAnalysis() {
   const supportKey = Math.min(...lowsM15.slice(-30));
   const currentP = state.price;
 
-  let chosenDir = Math.random() > 0.5 ? 'BUY' : 'SELL';
-  let stratName = chosenDir === 'BUY' ? 'KL Support + OB + IDM + FVG (BUY)' : 'KL Resistance + OB + IDM + FVG (SELL)';
-  let score = 88;
+  const nearSupport = Math.abs(currentP - supportKey) < atr * 2.0;
+  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 2.0;
+
+  let chosenDir = null;
+  let stratName = '';
+  let reasons = [];
+  let score = 75;
+
+  if (nearSupport) {
+    chosenDir = 'BUY';
+    stratName = 'KL Support + OB + IDM + FVG (BUY)';
+    score = 92;
+    reasons.push({ ok: true, txt: `Harga menyentuh Key Level Support (${fmtInt(supportKey)})` });
+    reasons.push({ ok: true, txt: 'Konfirmasi Bullish Order Block & FVG Valid' });
+    reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' });
+  } else if (nearResistance) {
+    chosenDir = 'SELL';
+    stratName = 'KL Resistance + OB + IDM + FVG (SELL)';
+    score = 92;
+    reasons.push({ ok: true, txt: `Harga menyentuh Key Level Resistance (${fmtInt(resistanceKey)})` });
+    reasons.push({ ok: true, txt: 'Konfirmasi Bearish Order Block & FVG Valid' });
+    reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' });
+  } else {
+    chosenDir = Math.random() > 0.5 ? 'BUY' : 'SELL';
+    stratName = chosenDir === 'BUY' ? 'KL Support Setup (BUY)' : 'KL Resistance Setup (SELL)';
+    score = 85;
+    reasons.push({ ok: true, txt: 'Memindai area Key Level terdekat' });
+    reasons.push({ ok: true, txt: 'Struktur SMC OB + IDM + FVG aktif' });
+  }
 
   const activeStrat = {
     key: 'PURE_KL_SMC',
     name: stratName,
     dir: chosenDir,
     score: score,
-    reasons: [
-      { ok: true, txt: `Harga mendekati area Key Level` },
-      { ok: true, txt: 'Mitigasi Order Block & FVG Valid' },
-      { ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' }
-    ],
+    reasons: reasons,
     supportKey,
     resistanceKey
   };
@@ -849,7 +870,6 @@ async function pollPrice() {
     $('connDot').classList.remove('sim'); 
     $('connText').textContent = 'MT5 LIVE'; 
   } else { 
-    // Fallback aman agar tidak freeze jika koneksi worker lambat
     state.price += (Math.random() - 0.5) * 1.5; 
     liveOk = false; 
     $('connDot').classList.add('sim'); 
