@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (Full Complete)</title>
+<title>Signals · Ekebilas Bot Pro (No Duplicate Entry)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -402,12 +402,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v13_full') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v14_nodup') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v13_full', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v14_nodup', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -643,6 +643,10 @@ function checkAutoSignal() {
   valid.forEach(best => {
     const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
     if (recentSignals.length >= 3) return;
+
+    // PROTEKSI ANTI-DUPLIKASI: Jangan buka sinyal jika arah sama dan jarak harga < 4.0
+    const duplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 4.0);
+    if (duplicate) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
