@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot</title>
+<title>Signals · Ekebilas Bot Pro</title>
 <style>
 :root {
   --bg: #08090a;
@@ -90,7 +90,6 @@ body {
   padding: 14px;
   margin-bottom: 14px;
 }
-/* TAMPILAN KHUSUS UI NEWS ALERT (BERBEDA SENDIRI) */
 .sig-card.news-alert-card {
   background: linear-gradient(135deg, #2a1215, #121417);
   border: 2px solid var(--red);
@@ -270,7 +269,7 @@ body {
 <header class="topbar">
   <div>
     <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
-    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX</span>
+    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · Pro Hybrid</span>
   </div>
   <div class="live-badge">
     <span class="dot" id="connDot"></span>
@@ -281,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · H1</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · H1 Filter</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -330,7 +329,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Multi-Strategy Engine (4 Core Strategies)</div>
+      <div class="panel-title">Multi-Strategy Engine (Trend + Counter-Sweep)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -405,12 +404,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v7') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v8') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v7', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v8', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -503,7 +502,6 @@ async function checkEconomicNews() {
     usdHighNews.forEach(item => {
       const newsTime = new Date(item.date);
       const diffMins = (newsTime - now) / 60000;
-      // Jika berita rilis dalam rentang 20 menit ke depan atau sudah lewat 10 menit
       if (diffMins >= -10 && diffMins <= 20) {
         activeAlert = true;
         newsTitle = item.title;
@@ -520,7 +518,6 @@ async function checkEconomicNews() {
       $('newsStatusUI').textContent = `SIAGA NEWS: ${newsTitle}`;
       $('newsStatusUI').style.color = 'var(--red)';
 
-      // Jika baru saja masuk sesi news, buat sinyal khusus news secara otomatis di UI
       if (!wasActive) {
         triggerNewsSpecialSignal(newsTitle);
       }
@@ -540,12 +537,10 @@ async function checkEconomicNews() {
   }
 }
 
-// Sinyal Khusus Saat News Besar Terdeteksi
 function triggerNewsSpecialSignal(title) {
   const entry = state.price;
-  // Menentukan arah kilat berdasarkan momentum candle terakhir
   const isBuy = Math.random() > 0.5; 
-  const risk = 15; // 15 pips SL untuk news volatility
+  const risk = 15; 
   const sl = isBuy ? entry - risk : entry + risk;
   const tp1 = isBuy ? entry + 25 : entry - 25;
   const tp2 = isBuy ? entry + 50 : entry - 50;
@@ -573,7 +568,7 @@ function triggerNewsSpecialSignal(title) {
     tp3Hit: false,
     status: 'ACTIVE',
     createdAt: Date.now(),
-    isNewsAlert: true, // Penanda UI khusus
+    isNewsAlert: true,
     reasons: [
       { ok: true, txt: `Rilis Berita Penting: ${title}` },
       { ok: true, txt: 'Volatilitas Tinggi (Gunakan Lot Terkontrol)' },
@@ -616,13 +611,6 @@ function jsonpGet(qs, validate) {
   });
 }
 
-function emaArr(v, n) {
-  const k = 2 / (n + 1);
-  let e = v[0];
-  const o = [e];
-  for (let i = 1; i < v.length; i++) { e = v[i] * k + e * (1 - k); o.push(e); }
-  return o;
-}
 function trSeries(c) {
   const tr = [];
   for (let i = 1; i < c.length; i++) {
@@ -639,54 +627,78 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// Strategi standar
-function alchemistStrat(m15, h1, atr, price) {
-  const n = m15.length;
-  const res = { key: 'ALCHEMIST', name: 'Alchemist Zero-Float', dir: null, score: 0, reasons: [], stopLevel: null };
-  if (n < 40) return res;
-  const lastC = m15[n - 1];
-  const pool = m15.slice(-20, -2);
-  const bsl = Math.max(...pool.map(x => x[2])), ssl = Math.min(...pool.map(x => x[3]));
-
-  if (lastC[3] < ssl && lastC[4] > ssl) {
-    res.dir = 'BUY'; res.stopLevel = lastC[3] - 0.2 * atr; res.score = 82;
-    res.reasons.push({ ok: true, txt: `Alchemist Sweep SSL di ${fmtInt(ssl)}` });
-    return res;
-  }
-  if (lastC[2] > bsl && lastC[4] < bsl) {
-    res.dir = 'SELL'; res.stopLevel = lastC[2] + 0.2 * atr; res.score = 82;
-    res.reasons.push({ ok: true, txt: `Alchemist Sweep BSL di ${fmtInt(bsl)}` });
-    return res;
-  }
-  return res;
-}
-
-function obIdmStrat(m15, h1, atr, price) {
-  const n = m15.length;
-  const res = { key: 'OB_IDM', name: 'OB + IDM Instant', dir: null, score: 0, reasons: [], stopLevel: null };
-  if (n < 40) return res;
-  const lastC = m15[n - 1];
-  for (let i = n - 5; i >= n - 20; i--) {
-    const c = m15[i];
-    if (c[4] < c[1] && (c[2] - c[3]) >= 1.2 * atr && Math.min(lastC[3], lastC[4]) <= c[1] && lastC[4] >= c[3]) {
-      res.dir = 'BUY'; res.stopLevel = c[3] - 0.2 * atr; res.score = 80;
-      res.reasons.push({ ok: true, txt: `Mitigasi Bullish OB di ${fmtInt(c[3])}` });
-      return res;
-    }
-  }
-  return res;
-}
-
+// --- STRATEGI UTAMA DENGAN FILTER TREN H1 & COUNTER-SWEEP AMAN ---
 function runAnalysis() {
   const cd = state.candles;
   if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 50 || cd.h1.length < 50) return null;
-  const m15 = cd.m15.slice(0, -1), h1 = cd.h1.slice(0, -1);
+
+  const m15 = cd.m15.slice(0, -1);
+  const h1 = cd.h1.slice(0, -1);
   const atr = atrLast(m15, 14);
   if (!atr) return null;
-  
-  const alc = alchemistStrat(m15, h1, atr, state.price);
-  const ob = obIdmStrat(m15, h1, atr, state.price);
-  state.analysis = { atr, strats: [alc, ob], cT: cd.m15[cd.m15.length - 1][0] };
+
+  // 1. Filter Tren Utama H1 (Membaca arah makro dari 10 candle H1 terakhir)
+  const h1Recent = h1.slice(-10);
+  const h1TrendSum = h1Recent.reduce((acc, c) => acc + (c[4] - c[1]), 0);
+  const marketTrend = h1TrendSum < 0 ? 'BEARISH' : 'BULLISH';
+
+  if ($('newsStatusUI') && !highImpactNewsActive) {
+    $('newsStatusUI').textContent = `Tren H1: ${marketTrend}`;
+    $('newsStatusUI').style.color = marketTrend === 'BEARISH' ? 'var(--red)' : 'var(--green)';
+  }
+
+  const lastM15 = m15[m15.length - 1];
+  const pool = m15.slice(-20, -2);
+  const bsl = Math.max(...pool.map(x => x[2]));
+  const ssl = Math.min(...pool.map(x => x[3]));
+
+  // Deteksi Sweep untuk Counter-Trend Reversal yang valid
+  const sweepSSL = lastM15[3] < ssl && lastM15[4] > ssl; // Sapu bawah lalu close naik (Peluang BUY)
+  const sweepBSL = lastM15[2] > bsl && lastM15[4] < bsl; // Sapu atas lalu close turun (Peluang SELL)
+
+  let chosenDir = null;
+  let stratName = '';
+  let reasons = [];
+  let score = 82;
+
+  // 2. ATURAN KETAT: JIKA ADA SWEEP REVERSAL, BOLEH COUNTER. JIKA TIDAK, WAJIB SEARAH TREN H1!
+  if (sweepSSL && marketTrend === 'BEARISH') {
+    chosenDir = 'BUY';
+    stratName = 'Counter-Trend Sweep Reversal (BUY)';
+    score = 85;
+    reasons.push({ ok: true, txt: `Liquidity Sweep SSL valid di ${fmtInt(ssl)}` });
+    reasons.push({ ok: true, txt: 'Potensi Reversal Bullish Terkonfirmasi' });
+  } else if (sweepBSL && marketTrend === 'BULLISH') {
+    chosenDir = 'SELL';
+    stratName = 'Counter-Trend Sweep Reversal (SELL)';
+    score = 85;
+    reasons.push({ ok: true, txt: `Liquidity Sweep BSL valid di ${fmtInt(bsl)}` });
+    reasons.push({ ok: true, txt: 'Potensi Reversal Bearish Terkonfirmasi' });
+  } else {
+    // Trend Following Murni (Menjaga agar tidak melawan arus tren besar H1)
+    if (marketTrend === 'BEARISH') {
+      chosenDir = 'SELL';
+      stratName = 'H1 Trend Continuation (SELL)';
+      score = 88;
+      reasons.push({ ok: true, txt: 'Tren H1 Bearish Kuat (Filter BUY Dikunci Total)' });
+    } else {
+      chosenDir = 'BUY';
+      stratName = 'H1 Trend Continuation (BUY)';
+      score = 88;
+      reasons.push({ ok: true, txt: 'Tren H1 Bullish Kuat (Filter SELL Dikunci Total)' });
+    }
+  }
+
+  const activeStrat = {
+    key: 'HYBRID_PRO',
+    name: stratName,
+    dir: chosenDir,
+    score: score,
+    reasons: reasons,
+    stopLevel: chosenDir === 'BUY' ? lastM15[3] - 0.3 * atr : lastM15[2] + 0.3 * atr
+  };
+
+  state.analysis = { atr, strats: [activeStrat], cT: cd.m15[cd.m15.length - 1][0] };
   renderEngineUI();
   checkAutoSignal();
 }
@@ -694,7 +706,7 @@ function runAnalysis() {
 function checkAutoSignal() {
   const a = state.analysis;
   if (!liveOk || !a) return;
-  if (highImpactNewsActive) return; // Skip analisa normal saat news aktif karena sudah ditangani pemancar news khusus
+  if (highImpactNewsActive) return;
 
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
   if (!valid.length) return;
@@ -703,9 +715,13 @@ function checkAutoSignal() {
     const alreadyExists = state.signals.some(s => s.status === 'ACTIVE' && s.strat === best.name && s.cT === a.cT);
     if (alreadyExists) return;
 
+    // Batasi maksimal 1 posisi aktif agar tidak spam
+    const activeCount = state.signals.filter(s => s.status === 'ACTIVE').length;
+    if (activeCount >= 1) return;
+
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
-    const risk = a.atr * 1.0;
+    const risk = a.atr * 1.2;
     const sl = isBuy ? entry - risk : entry + risk;
     const tp1 = isBuy ? entry + risk : entry - risk;
     const tp2 = isBuy ? entry + risk * 2 : entry - risk * 2;
@@ -790,9 +806,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">📡</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Multi-Strategy & News UI Siaga</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Hybrid Engine Siaga</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Memantau market XAUUSD dengan UI News Flash Khusus.
+          Memantau market XAUUSD dengan proteksi tren H1 ketat.
         </div>
       </div>`;
     return;
@@ -803,7 +819,6 @@ function renderSignals() {
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     let statusHtml = s.status === 'ACTIVE' ? (s.tp1Hit ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`) : (s.status === 'WON' ? `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`);
 
-    // JIKA INI SINYAL NEWS, BERIKAN KELAS CSS BERBEDA (TAMPILAN UI MENYALA / BEDA SENDIRI)
     const cardClass = s.isNewsAlert ? 'sig-card news-alert-card' : 'sig-card';
 
     return `
@@ -907,7 +922,7 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Performa Multi-Strategy</div>
+    <div class="panel-title">Statistik Performa Hybrid Engine</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
