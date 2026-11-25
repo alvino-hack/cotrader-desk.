@@ -637,12 +637,19 @@ function checkAutoSignal() {
   const a = state.analysis;
   if (!a || highImpactNewsActive) return;
 
+  // BLOKIR SINYAL SAAT SAFE MODE (hanya izinkan saat koneksi MT5 LIVE valid)
+  if (!liveOk) return;
+
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
   if (!valid.length) return;
 
   valid.forEach(best => {
     const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
     if (recentSignals.length >= 3) return;
+
+    // BLOKIR SINYAL BENTROK: Jangan entry jika sudah ada posisi aktif di arah sama dengan selisih harga < $12.0
+    const isDuplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
+    if (isDuplicate) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
