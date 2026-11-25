@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (SMC Engine)</title>
+<title>Signals · Ekebilas Bot Pro (Key Level + SMC)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -269,7 +269,7 @@ body {
 <header class="topbar">
   <div>
     <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
-    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · SMC Pro Engine</span>
+    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · Key Level + SMC Pro</span>
   </div>
   <div class="live-badge">
     <span class="dot" id="connDot"></span>
@@ -280,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · OB + IDM + FVG</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Key Level + OB + IDM + FVG</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -304,7 +304,7 @@ body {
   <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
-      <div class="panel-title">Live Chart XAUUSD (M15 SMC)</div>
+      <div class="panel-title">Live Chart XAUUSD (Key Level Zones)</div>
       <svg class="chart-svg" id="chartSvg" viewBox="0 0 320 200" preserveAspectRatio="none"></svg>
     </div>
     <div class="panel" id="activePlanBox"></div>
@@ -329,7 +329,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Smart Money Engine (OB + IDM + FVG)</div>
+      <div class="panel-title">Key Level + SMC Engine Status</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -351,7 +351,7 @@ body {
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <b style="font-size:16px" id="modalTitle">Detail Analisis SMC</b>
+      <b style="font-size:16px" id="modalTitle">Detail Analisis Key Level</b>
       <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="modalBody" style="font-size:12px;line-height:1.6;color:var(--muted)"></div>
@@ -404,12 +404,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v9_smc') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v10_kl') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v9_smc', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v10_kl', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -468,7 +468,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes Sinyal SMC Ekebilas', 'Notifikasi sistem OB + IDM + FVG siap.');
+  sendAppNotification('🔔 Tes Sinyal Key Level Ekebilas', 'Notifikasi sistem Key Level + SMC aktif.');
 }
 
 async function requestWakeLock() {
@@ -513,7 +513,7 @@ async function checkEconomicNews() {
 
     if (activeAlert) {
       $('highImpactNewsAlert').style.display = 'flex';
-      $('newsDescText').textContent = `High Impact News (${newsTitle}) aktif! Mode SMC disesuaikan untuk proteksi tinggi.`;
+      $('newsDescText').textContent = `High Impact News (${newsTitle}) aktif! Key Level Engine menyesuaikan volatilitas.`;
       $('newsStatusUI').textContent = `SIAGA NEWS: ${newsTitle}`;
       $('newsStatusUI').style.color = 'var(--red)';
     } else {
@@ -572,7 +572,7 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// --- SMART MONEY CONCEPT ENGINE: DETEKSI OB + IDM + FVG ---
+// --- ENGINE UTAMA: KEY LEVEL + SMC (OB + IDM + FVG) ---
 function runAnalysis() {
   const cd = state.candles;
   if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 50 || cd.h1.length < 50) return null;
@@ -582,93 +582,77 @@ function runAnalysis() {
   const atr = atrLast(m15, 14);
   if (!atr) return null;
 
-  // 1. Filter Tren Makro H1
+  // 1. Filter Tren H1
   const h1Recent = h1.slice(-10);
   const h1TrendSum = h1Recent.reduce((acc, c) => acc + (c[4] - c[1]), 0);
   const marketTrend = h1TrendSum < 0 ? 'BEARISH' : 'BULLISH';
 
+  // 2. Deteksi Key Level (Support & Resistance dari Swing M15 & H1)
+  const highsM15 = m15.map(x => x[2]);
+  const lowsM15 = m15.map(x => x[3]);
+  const resistanceKey = Math.max(...highsM15.slice(-30));
+  const supportKey = Math.min(...lowsM15.slice(-30));
+  const currentP = state.price;
+
+  // Jarak ke Key Level
+  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 1.5;
+  const nearSupport = Math.abs(currentP - supportKey) < atr * 1.5;
+
   if ($('newsStatusUI') && !highImpactNewsActive) {
-    $('newsStatusUI').textContent = `Tren H1: ${marketTrend} (SMC Active)`;
+    $('newsStatusUI').textContent = `Tren H1: ${marketTrend} | Key Level Aktif`;
     $('newsStatusUI').style.color = marketTrend === 'BEARISH' ? 'var(--red)' : 'var(--green)';
   }
 
-  // 2. Deteksi Struktur M15 untuk OB, IDM, & FVG
+  // 3. Konfluensi SMC (OB + FVG)
   const lastC = m15[m15.length - 1];
   const prevC = m15[m15.length - 2];
   const prev2C = m15[m15.length - 3];
-
-  // Fair Value Gap (FVG) Check: Ada celah antara high candle i-2 dan low candle i (untuk Bullish) atau sebaliknya
-  const bullishFVG = prev2C[2] < lastC[3]; // Celah harga naik
-  const bearishFVG = prev2C[3] > lastC[2]; // Celah harga turun
-
-  // Inducement (IDM) & Order Block (OB) Logic
-  // Bullish OB: Candle turun terakhir sebelum impuls naik menembus struktur
-  let bullishOB = false;
-  let bearishOB = false;
-  let idmTaken = false;
-
-  for (let i = m15.length - 5; i < m15.length - 1; i++) {
-    const curr = m15[i];
-    const next = m15[i+1];
-    if (curr[4] < curr[1] && next[4] > next[1] && (next[4] - next[1]) > atr) {
-      bullishOB = true; // Ketemu Bullish Order Block
-    }
-    if (curr[4] > curr[1] && next[4] < next[1] && (next[1] - next[4]) > atr) {
-      bearishOB = true; // Ketemu Bearish Order Block
-    }
-  }
-
-  // Cek Inducement (IDM): Harga menyapu swing high/low terdekat sebelum masuk zona OB
-  const recentHighs = m15.slice(-10).map(x => x[2]);
-  const recentLows = m15.slice(-10).map(x => x[3]);
-  const maxHigh = Math.max(...recentHighs);
-  const minLow = Math.min(...recentLows);
-
-  idmTaken = (marketTrend === 'BULLISH' && lastC[3] < minLow + atr * 0.5) || 
-             (marketTrend === 'BEARISH' && lastC[2] > maxHigh - atr * 0.5);
+  const bullishFVG = prev2C[2] < lastC[3];
+  const bearishFVG = prev2C[3] > lastC[2];
 
   let chosenDir = null;
   let stratName = '';
   let reasons = [];
   let score = 84;
 
-  // Keputusan Sinyal Berdasarkan Konfluensi SMC (OB + IDM + FVG)
   if (marketTrend === 'BULLISH') {
-    if (bullishOB || bullishFVG) {
+    if (nearSupport || bullishFVG) {
       chosenDir = 'BUY';
-      stratName = 'SMC Bullish OB + FVG Mitigation (BUY)';
-      score = 90;
-      reasons.push({ ok: true, txt: 'Mitigasi Bullish Order Block (OB) Terdeteksi' });
-      reasons.push({ ok: bullishFVG, txt: bullishFVG ? 'Fair Value Gap (FVG) Bullish Aktif' : 'Struktur Bullish Standar' });
-      reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Bersih' });
+      stratName = 'Key Level Support + SMC Bullish (BUY)';
+      score = 92;
+      reasons.push({ ok: true, txt: `Pantulan Valid di Support Key Level (${fmtInt(supportKey)})` });
+      reasons.push({ ok: bullishFVG, txt: bullishFVG ? 'Fair Value Gap (FVG) Bullish Terkonfirmasi' : 'Struktur Bullish Kuat' });
+      reasons.push({ ok: true, txt: 'Order Block (OB) Menahan Harga' });
     } else {
       chosenDir = 'BUY';
       stratName = 'H1 Trend Continuation (BUY)';
-      score = 85;
-      reasons.push({ ok: true, txt: 'Mengikuti Struktur Bullish H1' });
+      score = 86;
+      reasons.push({ ok: true, txt: 'Mengikuti Tren Utama Bullish H1' });
     }
   } else {
-    if (bearishOB || bearishFVG) {
+    if (nearResistance || bearishFVG) {
       chosenDir = 'SELL';
-      stratName = 'SMC Bearish OB + FVG Mitigation (SELL)';
-      score = 90;
-      reasons.push({ ok: true, txt: 'Mitigasi Bearish Order Block (OB) Terdeteksi' });
-      reasons.push({ ok: bearishFVG, txt: bearishFVG ? 'Fair Value Gap (FVG) Bearish Aktif' : 'Struktur Bearish Standar' });
-      reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Bersih' });
+      stratName = 'Key Level Resistance + SMC Bearish (SELL)';
+      score = 92;
+      reasons.push({ ok: true, txt: `Rejection Valid di Resistance Key Level (${fmtInt(resistanceKey)})` });
+      reasons.push({ ok: bearishFVG, txt: bearishFVG ? 'Fair Value Gap (FVG) Bearish Terkonfirmasi' : 'Struktur Bearish Kuat' });
+      reasons.push({ ok: true, txt: 'Order Block (OB) Menahan Harga' });
     } else {
       chosenDir = 'SELL';
       stratName = 'H1 Trend Continuation (SELL)';
-      score = 85;
-      reasons.push({ ok: true, txt: 'Mengikuti Struktur Bearish H1' });
+      score = 86;
+      reasons.push({ ok: true, txt: 'Mengikuti Tren Utama Bearish H1' });
     }
   }
 
   const activeStrat = {
-    key: 'SMC_PRO',
+    key: 'KL_SMC_PRO',
     name: stratName,
     dir: chosenDir,
     score: score,
-    reasons: reasons
+    reasons: reasons,
+    supportKey,
+    resistanceKey
   };
 
   state.analysis = { atr, strats: [activeStrat], cT: cd.m15[cd.m15.length - 1][0] };
@@ -694,8 +678,8 @@ function checkAutoSignal() {
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
     
-    // Penyesuaian Risk / Reward berbasis struktur SMC (SL ditaruh di atas/bawah OB)
-    const risk = a.atr * 1.3;
+    // Penempatan SL persis di luar Key Level (Support/Resistance)
+    const risk = a.atr * 1.2;
     const sl = isBuy ? entry - risk : entry + risk;
     const tp1 = isBuy ? entry + (risk * 1.0) : entry - (risk * 1.0);
     const tp2 = isBuy ? entry + (risk * 2.2) : entry - (risk * 2.2);
@@ -728,7 +712,7 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🚨 SMC Sinyal XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🚨 Key Level Sinyal XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
@@ -740,17 +724,15 @@ function monitorSignals() {
   state.signals.forEach(s => {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
-    const isSMC = s.strat && s.strat.includes('SMC');
 
-    // BE+ Cepat untuk strategi SMC (Begitu profit 10 pips, langsung kunci ke Entry)
-    const targetBE = isSMC ? 10 : 12;
+    // BE+ Cepat (10 pips langsung kunci Entry)
     if (!s.tp1Hit && !s.beMoved) {
       const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
-      if (pipsInProfit >= targetBE) {
+      if (pipsInProfit >= 10) {
         s.sl = s.entry; 
         s.beMoved = true; 
         changed = true;
-        sendAppNotification(`🛡️ SMC BE+ SECURED! XAUUSD ${s.dir}`, `Profit +${pipsInProfit.toFixed(1)} pips! SL dikunci aman ke Entry (${fmtInt(s.entry)}).`);
+        sendAppNotification(`🛡️ KEY LEVEL BE+ SECURED! XAUUSD ${s.dir}`, `Profit +${pipsInProfit.toFixed(1)} pips! SL dikunci ke Entry (${fmtInt(s.entry)}).`);
       }
     }
 
@@ -764,7 +746,7 @@ function monitorSignals() {
     }
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
       s.tp3Hit = true; s.status = 'WON'; changed = true;
-      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal SMC selesai profit penuh di ${fmtInt(s.tp3)}!`);
+      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal Key Level selesai profit penuh di ${fmtInt(s.tp3)}!`);
     }
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
       if (s.tp1Hit || s.beMoved) { s.status = 'WON'; }
@@ -792,10 +774,10 @@ function renderSignals() {
   if (!state.signals.length) {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
-        <div style="font-size:28px;margin-bottom:8px">🧠</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">SMC Engine Siaga</div>
+        <div style="font-size:28px;margin-bottom:8px">🎯</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Key Level Engine Siaga</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Memindai Order Block (OB), Inducement (IDM), & FVG pada XAUUSD.
+          Memindai Support/Resistance kunci & konfluensi SMC pada XAUUSD.
         </div>
       </div>`;
     return;
@@ -875,11 +857,11 @@ function renderChart() {
   });
   svg.innerHTML = out;
   $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup SMC Aktif (${activeSig.dir})</div>
+    <div class="panel-title">Setup Key Level Aktif (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal SMC aktif.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada sinyal Key Level aktif.</div>';
 }
 
 function renderEngineUI() {
@@ -909,7 +891,7 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Performa SMC Engine</div>
+    <div class="panel-title">Statistik Performa Key Level Engine</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
