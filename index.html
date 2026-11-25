@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (No Duplicate Entry)</title>
+<title>Signals · Ekebilas Bot Pro (Strict Anti-Overlap)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -402,12 +402,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v14_nodup') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v15_strict') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v14_nodup', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v15_strict', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -644,9 +644,9 @@ function checkAutoSignal() {
     const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
     if (recentSignals.length >= 3) return;
 
-    // PROTEKSI ANTI-DUPLIKASI: Jangan buka sinyal jika arah sama dan jarak harga < 4.0
-    const duplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 4.0);
-    if (duplicate) return;
+    // PROTEKSI KETAT: Blokir jika ada sinyal aktif dengan arah yang sama DAN selisih harga entry kurang dari 12 poin ($12.0)
+    const duplicatePriceOrDir = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
+    if (duplicatePriceOrDir) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
@@ -815,7 +815,7 @@ function renderChart() {
     out += `<line x1="${x}" x2="${x}" y1="${Y(c.h)}" y2="${Y(c.l)}" stroke="${col}" stroke-width="1"/>`;
     out += `<rect x="${x - bw / 2}" y="${top}" width="${bw}" height="${bh}" fill="${col}" rx="1"/>`;
   });
-  svg.innerHTML = out;
+  svg.innerHTML = output;
   $('activePlanBox').innerHTML = activeSig ? `
     <div class="panel-title">Setup KL + SMC Aktif (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
