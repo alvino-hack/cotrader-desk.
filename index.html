@@ -774,8 +774,11 @@ function monitorSignals() {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
-    // 1. Proteksi Cepat Khusus Counter-Trend: Jika profit sudah >= 8 pips, langsung geser SL ke Entry (BE+)
-    if (s.isCounter && !s.tp1Hit && !s.beMoved) {
+    // Deteksi langsung dari teks strategi (memastikan sinyal Counter-Trend tertangkap)
+    const isCounterTrendSignal = s.strat && s.strat.includes('Counter-Trend');
+
+    // 1. Proteksi Cepat Counter-Trend: Jika profit sudah >= 8 pips, langsung geser SL ke Entry (BE+)
+    if (isCounterTrendSignal && !s.tp1Hit && !s.beMoved) {
       const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
       if (pipsInProfit >= 8) {
         s.sl = s.entry; 
