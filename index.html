@@ -722,7 +722,12 @@ function checkAutoSignal() {
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
-    const risk = a.atr * 1.2;
+    const isCounter = best.name.includes('Counter-Trend');
+    
+    // Jika Counter-Trend, buat jarak SL sedikit lebih ketat
+    const riskMultiplier = isCounter ? 0.9 : 1.2;
+    const risk = a.atr * riskMultiplier;
+
     const sl = isBuy ? entry - risk : entry + risk;
     const tp1 = isBuy ? entry + risk : entry - risk;
     const tp2 = isBuy ? entry + risk * 2 : entry - risk * 2;
@@ -749,6 +754,7 @@ function checkAutoSignal() {
       status: 'ACTIVE',
       createdAt: Date.now(),
       cT: a.cT,
+      isCounter: isCounter,
       reasons: best.reasons
     };
 
@@ -768,6 +774,15 @@ function monitorSignals() {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
+    // Proteksi Ekstra: Jika Counter-Trend dan profit sudah mencapai 8 pips, langsung kunci BEP
+    if (s.isCounter && !s.tp1Hit) {
+      const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
+      if (pipsInProfit >= 8) {
+        s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
+        sendAppNotification(`🛡️ COUNTER-TREND SECURED! XAUUSD ${s.dir}`, `Profit awal tercapai! SL digeser otomatis ke Entry (BE+).`);
+      }
+    }
+
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
       s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
       sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Profit aman di ${fmtInt(s.tp1)}! SL digeser ke BE.`);
@@ -781,7 +796,7 @@ function monitorSignals() {
       sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal selesai profit penuh di ${fmtInt(s.tp3)}!`);
     }
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      if (s.tp1Hit) { s.status = 'WON'; }
+      if (s.tp1Hit || s.beMoved) { s.status = 'WON'; }
       else { s.status = 'LOSS'; sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); }
       changed = true;
     }
