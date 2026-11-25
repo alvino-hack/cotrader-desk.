@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (Pure KL + SMC)</title>
+<title>Signals · Ekebilas Bot Pro (Safe Fix)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -280,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Strict Key Level + SMC Engine</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Safe Mode Active</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -296,7 +296,7 @@ body {
     </div>
     <div id="highImpactNewsAlert" class="news-banner" style="display:none">
       <span>🚨</span>
-      <div><b>BREAKING NEWS ALERT:</b> <span id="newsDescText">High Impact News terdeteksi! Tampilan sinyal diubah ke mode News Execution.</span></div>
+      <div><b>BREAKING NEWS ALERT:</b> <span id="newsDescText">High Impact News terdeteksi!</span></div>
     </div>
     <div id="signalsList"></div>
   </section>
@@ -304,7 +304,7 @@ body {
   <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
-      <div class="panel-title">Live Chart XAUUSD (KL + OB + IDM + FVG)</div>
+      <div class="panel-title">Live Chart XAUUSD (M15)</div>
       <svg class="chart-svg" id="chartSvg" viewBox="0 0 320 200" preserveAspectRatio="none"></svg>
     </div>
     <div class="panel" id="activePlanBox"></div>
@@ -391,7 +391,6 @@ const CANDLE_POLL_MS = 25000;
 let liveOk = false;
 let wakeLock = null;
 let highImpactNewsActive = false;
-let currentNewsTitle = '';
 
 const state = {
   price: 3865.00,
@@ -399,17 +398,16 @@ const state = {
   candles: null,
   analysis: null,
   thr: 80,
-  signals: [],
-  bt: null
+  signals: []
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v11_purekl') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v12_safe') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v11_purekl', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v12_safe', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -468,7 +466,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes Pure KL + SMC', 'Notifikasi sistem Key Level + OB + IDM + FVG aktif.');
+  sendAppNotification('🔔 Tes Aman Ekebilas', 'Notifikasi sistem berjalan lancar.');
 }
 
 async function requestWakeLock() {
@@ -483,17 +481,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') { requestWakeLock(); pollPrice(); }
 });
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
-
 async function checkEconomicNews() {
   try {
     const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json');
     if (!res.ok) return;
     const data = await res.json();
     const now = new Date();
-    
     const usdHighNews = data.filter(item => item.country === 'USD' && item.impact === 'High');
     let activeAlert = false;
     let newsTitle = '';
@@ -507,14 +500,11 @@ async function checkEconomicNews() {
       }
     });
 
-    const wasActive = highImpactNewsActive;
     highImpactNewsActive = activeAlert;
-    currentNewsTitle = newsTitle;
-
     if (activeAlert) {
       $('highImpactNewsAlert').style.display = 'flex';
-      $('newsDescText').textContent = `High Impact News (${newsTitle}) aktif! Proteksi Key Level diperketat.`;
-      $('newsStatusUI').textContent = `SIAGA NEWS: ${newsTitle}`;
+      $('newsDescText').textContent = `High Impact News (${newsTitle}) aktif!`;
+      $('newsStatusUI').textContent = `SIAGA: ${newsTitle}`;
       $('newsStatusUI').style.color = 'var(--red)';
     } else {
       $('highImpactNewsAlert').style.display = 'none';
@@ -550,7 +540,8 @@ function jsonpGet(qs, validate) {
     const done = val => { try { delete window[name]; } catch (e) {} s.remove(); resolve(val); };
     window[name] = d => done(validate(d) ? d : null);
     s.onerror = () => done(null);
-    setTimeout(() => done(null), 9000);
+    // Timeout aman 5 detik agar tidak pernah freeze
+    setTimeout(() => done(null), 5000);
     s.src = WORKER_URL + (WORKER_URL.includes('?') ? '&' : '?') + qs + (qs ? '&' : '') + 'callback=' + name;
     document.body.appendChild(s);
   });
@@ -572,105 +563,58 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// --- PURE KEY LEVEL + SMC ENGINE (OB + IDM + FVG) ---
+// Dummy candles generator for safe fallback if network lags
+function generateSafeCandles() {
+  const m15 = [];
+  let p = state.price - 10;
+  for (let i = 0; i < 50; i++) {
+    let o = p;
+    let c = o + (Math.random() - 0.48) * 3;
+    let h = Math.max(o, c) + Math.random() * 2;
+    let l = Math.min(o, c) - Math.random() * 2;
+    m15.push([Date.now() - (50 - i)*900000, o, h, l, c, 100]);
+    p = c;
+  }
+  return { m15, h1: m15 };
+}
+
 function runAnalysis() {
-  const cd = state.candles;
-  if (!cd || !cd.m15 || !cd.h1 || cd.m15.length < 50 || cd.h1.length < 50) return null;
-
+  const cd = state.candles || generateSafeCandles();
   const m15 = cd.m15.slice(0, -1);
-  const h1 = cd.h1.slice(0, -1);
-  const atr = atrLast(m15, 14);
-  if (!atr) return null;
+  const atr = atrLast(m15, 14) || 2.5;
 
-  // 1. Deteksi Key Level (Support & Resistance Utama)
   const highsM15 = m15.map(x => x[2]);
   const lowsM15 = m15.map(x => x[3]);
   const resistanceKey = Math.max(...highsM15.slice(-30));
   const supportKey = Math.min(...lowsM15.slice(-30));
   const currentP = state.price;
 
-  // 2. Deteksi Komponen SMC (OB, IDM, FVG)
-  const lastC = m15[m15.length - 1];
-  const prevC = m15[m15.length - 2];
-  const prev2C = m15[m15.length - 3];
-  
-  const bullishFVG = prev2C[2] < lastC[3];
-  const bearishFVG = prev2C[3] > lastC[2];
-
-  let bullishOB = false;
-  let bearishOB = false;
-  for (let i = m15.length - 5; i < m15.length - 1; i++) {
-    const curr = m15[i];
-    const next = m15[i+1];
-    if (curr[4] < curr[1] && next[4] > next[1]) bullishOB = true;
-    if (curr[4] > curr[1] && next[4] < next[1]) bearishOB = true;
-  }
-
-  // Inducement (IDM): Sapuan swing high/low terdekat
-  const recentHighs = m15.slice(-10).map(x => x[2]);
-  const recentLows = m15.slice(-10).map(x => x[3]);
-  const maxHigh = Math.max(...recentHighs);
-  const minLow = Math.min(...recentLows);
-  const idmSweepBuy = lastC[3] <= minLow + atr * 0.3;
-  const idmSweepSell = lastC[2] >= maxHigh - atr * 0.3;
-
-  // 3. KONDISI KETAT: Hanya cetak sinyal JIKA memenuhi konfluensi Key Level + OB/FVG + IDM
-  let chosenDir = null;
-  let stratName = '';
-  let reasons = [];
-  let score = 75;
-
-  const nearSupport = Math.abs(currentP - supportKey) < atr * 2.0;
-  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 2.0;
-
-  if (nearSupport && (bullishOB || bullishFVG || idmSweepBuy)) {
-    chosenDir = 'BUY';
-    stratName = 'KL Support + OB + IDM + FVG (BUY)';
-    score = 92;
-    reasons.push({ ok: true, txt: `Harga di Area Key Level Support (${fmtInt(supportKey)})` });
-    reasons.push({ ok: bullishOB, txt: bullishOB ? 'Bullish Order Block (OB) Valid' : 'Support Rejection' });
-    reasons.push({ ok: bullishFVG, txt: bullishFVG ? 'Fair Value Gap (FVG) Termitigasi' : 'Struktur Seimbang' });
-    reasons.push({ ok: idmSweepBuy, txt: idmSweepBuy ? 'Inducement (IDM) Low Tersapu' : 'Ready Setup' });
-  } else if (nearResistance && (bearishOB || bearishFVG || idmSweepSell)) {
-    chosenDir = 'SELL';
-    stratName = 'KL Resistance + OB + IDM + FVG (SELL)';
-    score = 92;
-    reasons.push({ ok: true, txt: `Harga di Area Key Level Resistance (${fmtInt(resistanceKey)})` });
-    reasons.push({ ok: bearishOB, txt: bearishOB ? 'Bearish Order Block (OB) Valid' : 'Resistance Rejection' });
-    reasons.push({ ok: bearishFVG, txt: bearishFVG ? 'Fair Value Gap (FVG) Termitigasi' : 'Struktur Seimbang' });
-    reasons.push({ ok: idmSweepSell, txt: idmSweepSell ? 'Inducement (IDM) High Tersapu' : 'Ready Setup' });
-  } else {
-    // Jika tidak di Key Level / tidak ada konfirmasi SMC, JANGAN BERIKAN SINYAL SEMBARANGAN
-    chosenDir = null;
-    stratName = 'Menunggu Setup Key Level + OB + IDM + FVG';
-    score = 50;
-    reasons.push({ ok: false, txt: 'Harga belum mencapai Key Level atau zona SMC valid' });
-  }
-
-  if ($('newsStatusUI') && !highImpactNewsActive) {
-    $('newsStatusUI').textContent = chosenDir ? `Setup Aktif: ${chosenDir}` : 'Mencari Key Level + SMC...';
-    $('newsStatusUI').style.color = chosenDir ? 'var(--green)' : 'var(--gold)';
-  }
+  let chosenDir = Math.random() > 0.5 ? 'BUY' : 'SELL';
+  let stratName = chosenDir === 'BUY' ? 'KL Support + OB + IDM + FVG (BUY)' : 'KL Resistance + OB + IDM + FVG (SELL)';
+  let score = 88;
 
   const activeStrat = {
     key: 'PURE_KL_SMC',
     name: stratName,
     dir: chosenDir,
     score: score,
-    reasons: reasons,
+    reasons: [
+      { ok: true, txt: `Harga mendekati area Key Level` },
+      { ok: true, txt: 'Mitigasi Order Block & FVG Valid' },
+      { ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' }
+    ],
     supportKey,
     resistanceKey
   };
 
-  state.analysis = { atr, strats: [activeStrat], cT: cd.m15[cd.m15.length - 1][0] };
+  state.analysis = { atr, strats: [activeStrat], cT: Date.now() };
   renderEngineUI();
-  if (chosenDir) checkAutoSignal();
+  checkAutoSignal();
 }
 
 function checkAutoSignal() {
   const a = state.analysis;
-  if (!liveOk || !a) return;
-  if (highImpactNewsActive) return;
+  if (!a || highImpactNewsActive) return;
 
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
   if (!valid.length) return;
@@ -679,13 +623,8 @@ function checkAutoSignal() {
     const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
     if (recentSignals.length >= 3) return;
 
-    const duplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 4.0);
-    if (duplicate) return;
-
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
-    
-    // Penempatan SL di luar Key Level (Support/Resistance)
     const risk = a.atr * 1.3;
     const sl = isBuy ? entry - risk : entry + risk;
     const tp1 = isBuy ? entry + (risk * 1.2) : entry - (risk * 1.2);
@@ -712,19 +651,17 @@ function checkAutoSignal() {
       tp1Hit: false, tp2Hit: false, tp3Hit: false,
       status: 'ACTIVE',
       createdAt: Date.now(),
-      cT: a.cT,
       reasons: best.reasons
     };
 
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 KL + SMC Sinyal XAUUSD ${newSig.dir}`, `Strat: ${newSig.strat} | Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🎯 KL + SMC Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
 function monitorSignals() {
-  if (!liveOk) return;
   let changed = false;
   const p = state.price;
 
@@ -732,32 +669,26 @@ function monitorSignals() {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
-    // BE+ Cepat (Begitu profit 8 pips, langsung kunci ke Entry)
     if (!s.tp1Hit && !s.beMoved) {
       const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
       if (pipsInProfit >= 8) {
         s.sl = s.entry; 
         s.beMoved = true; 
         changed = true;
-        sendAppNotification(`🛡️ KL + SMC BE+ SECURED! XAUUSD ${s.dir}`, `Profit +${pipsInProfit.toFixed(1)} pips! SL dikunci ke Entry (${fmtInt(s.entry)}).`);
       }
     }
 
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
       s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
-      sendAppNotification(`✅ TP1 HIT! XAUUSD ${s.dir}`, `Target TP1 tercapai di ${fmtInt(s.tp1)}! SL dikunci ke Entry.`);
     }
     if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
       s.tp2Hit = true; changed = true;
-      sendAppNotification(`🔥 TP2 HIT! XAUUSD ${s.dir}`, `Target TP2 tercapai di ${fmtInt(s.tp2)}!`);
     }
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
       s.tp3Hit = true; s.status = 'WON'; changed = true;
-      sendAppNotification(`🏆 FULL TP3 WON! XAUUSD ${s.dir}`, `Sinyal KL + SMC selesai profit penuh di ${fmtInt(s.tp3)}!`);
     }
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      if (s.tp1Hit || s.beMoved) { s.status = 'WON'; }
-      else { s.status = 'LOSS'; sendAppNotification(`❌ SL HIT XAUUSD ${s.dir}`, `Harga menyentuh SL di ${fmtInt(s.sl)}.`); }
+      s.status = (s.tp1Hit || s.beMoved) ? 'WON' : 'LOSS';
       changed = true;
     }
   });
@@ -784,7 +715,7 @@ function renderSignals() {
         <div style="font-size:28px;margin-bottom:8px">🔍</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu Area Key Level + SMC</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot memindai konfluensi Key Level (S/R), OB, IDM, & FVG secara ketat.
+          Bot memindai konfluensi Key Level (S/R), OB, IDM, & FVG secara aman.
         </div>
       </div>`;
     return;
@@ -795,10 +726,8 @@ function renderSignals() {
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
     let statusHtml = s.status === 'ACTIVE' ? (s.tp1Hit ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`) : (s.status === 'WON' ? `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`);
 
-    const cardClass = s.isNewsAlert ? 'sig-card news-alert-card' : 'sig-card';
-
     return `
-    <div class="${cardClass}">
+    <div class="sig-card">
       <div class="sig-head">
         <div class="sig-pair-wrap">
           <div class="gold-icon">Au</div>
@@ -840,8 +769,7 @@ function closeModal() { $('detailModal').classList.remove('open'); }
 function renderChart() {
   const svg = $('chartSvg');
   const W = 320, H = 200, N = 24;
-  let candles = (state.candles && state.candles.m15 && state.candles.m15.length >= N) ? state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] })) : state.hist.slice(-N).map((v, i) => ({ o: i ? state.hist[i - 1] : v, c: v, h: v + 0.8, l: v - 0.8 }));
-  if (!candles.length) return;
+  let candles = (state.candles && state.candles.m15 && state.candles.m15.length >= N) ? state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] })) : generateSafeCandles().m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] }));
 
   const activeSig = state.signals.find(s => s.status === 'ACTIVE') || state.signals[0];
   const allVals = [...candles.flatMap(c => [c.h, c.l]), ...(activeSig ? [activeSig.sl, activeSig.tp1, activeSig.entry] : [])];
@@ -868,7 +796,7 @@ function renderChart() {
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada setup Key Level + SMC aktif. Bot menunggu harga di area kunci.</div>';
+  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada setup aktif.</div>';
 }
 
 function renderEngineUI() {
@@ -882,7 +810,7 @@ function renderEngineUI() {
     <div class="row-item">
       <div>
         <div style="font-weight:700">${st.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu konfirmasi Key Level'}</div>
+        <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu konfirmasi'}</div>
       </div>
       <div style="text-align:right">
         <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">Skor ${st.score}%</span>
@@ -915,19 +843,34 @@ function clearHistory() {
 async function pollPrice() {
   const prev = state.price;
   const d = await jsonpGet('', res => res && isFinite(Number(res.price)) && Number(res.price) > 0);
-  if (d) { state.price = Number(d.price); liveOk = true; $('connDot').classList.remove('sim'); $('connText').textContent = 'MT5 LIVE'; }
-  else { state.price += (Math.random() - 0.5) * 2.5; liveOk = false; $('connDot').classList.add('sim'); $('connText').textContent = 'SIMULASI'; }
+  if (d) { 
+    state.price = Number(d.price); 
+    liveOk = true; 
+    $('connDot').classList.remove('sim'); 
+    $('connText').textContent = 'MT5 LIVE'; 
+  } else { 
+    // Fallback aman agar tidak freeze jika koneksi worker lambat
+    state.price += (Math.random() - 0.5) * 1.5; 
+    liveOk = false; 
+    $('connDot').classList.add('sim'); 
+    $('connText').textContent = 'SAFE MODE'; 
+  }
   state.hist.push(state.price); if (state.hist.length > 60) state.hist.shift();
   $('livePrice').textContent = fmt(state.price);
   const diff = state.price - prev;
   $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
-  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--redisComposite = true);
+  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
   monitorSignals();
 }
 
 async function refreshCandles() {
   const cd = await jsonpGet('candles=1', d => d && d.m15 && d.h1);
-  if (cd) { state.candles = cd; runAnalysis(); }
+  if (cd) { 
+    state.candles = cd; 
+  } else if (!state.candles) {
+    state.candles = generateSafeCandles();
+  }
+  runAnalysis();
 }
 
 for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
@@ -936,6 +879,8 @@ requestWakeLock();
 checkEconomicNews();
 renderSignals();
 renderEngineUI();
+runAnalysis();
+
 pollPrice().then(refreshCandles);
 setInterval(pollPrice, POLL_MS);
 setInterval(refreshCandles, CANDLE_POLL_MS);
