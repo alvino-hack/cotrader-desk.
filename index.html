@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (Auto-Close Counter)</title>
+<title>Signals · Ekebilas Bot Pro (Full Complete)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -127,7 +127,6 @@ body {
 .sig-status { font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
 .sig-status.active { color: var(--green); }
 .sig-status.won { color: var(--green); }
-.sig-status.close-profit { color: var(--green); }
 .sig-status.tp1 { color: var(--gold); }
 .sig-status.loss { color: var(--red); }
 
@@ -403,12 +402,12 @@ const state = {
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v17_autoclose') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v13_full') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v17_autoclose', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v13_full', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -644,23 +643,22 @@ function checkAutoSignal() {
   if (!valid.length) return;
 
   valid.forEach(best => {
-    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
-
-    // FITUR AUTO-CLOSE COUNTER-TREND: Jika muncul sinyal baru, posisi aktif yang BERLAWANAN arah langsung di-close (dianggap Win / Close Profit)
+    // AUTO-CLOSE: Jika ada sinyal baru, posisi aktif yang BERLAWANAN arah langsung ditutup (Won / Close Profit)
     let stateChanged = false;
     state.signals.forEach(s => {
       if (s.status === 'ACTIVE' && s.dir !== best.dir) {
-        s.status = 'WON'; // Dihitung sebagai Win (Close Profit)
-        s.closeNote = 'Close Profit (Counter-Trend)';
+        s.status = 'WON';
+        s.closeNote = 'Close Profit';
         stateChanged = true;
       }
     });
 
     if (stateChanged) saveSignals();
 
-    if (recentSignals.filter(s => s.status === 'ACTIVE').length >= 3) return;
+    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
+    if (recentSignals.length >= 3) return;
 
-    const isDuplicate = state.signals.filter(s => s.status === 'ACTIVE').some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
+    const isDuplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
     if (isDuplicate) return;
 
     const entry = state.price;
@@ -697,7 +695,7 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 KL + SMC Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)} (Counter-trend closed)`);
+    sendAppNotification(`🎯 KL + SMC Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
