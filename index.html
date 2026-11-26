@@ -637,13 +637,22 @@ function checkAutoSignal() {
   const a = state.analysis;
   if (!a || highImpactNewsActive) return;
 
+  // BLOKIR SINYAL SAAT SAFE MODE (hanya izinkan saat koneksi MT5 LIVE valid)
   if (!liveOk) return;
 
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
   if (!valid.length) return;
 
   valid.forEach(best => {
-    // AUTO-CLOSE: Jika ada sinyal baru, posisi aktif yang BERLAWANAN arah langsung ditutup (Won / Close Profit)
+    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
+
+    // 1. ANTI-BENTROK / ANTI-BOLAK-BALIK: Cek jarak harga dulu SEBELUM close posisi!
+    // Jangan izinkan entry baru (baik searah atau lawan arah) jika selisih harga dengan posisi aktif < 12.0 poin
+    const isTooClose = recentSignals.some(s => Math.abs(s.entry - state.price) < 12.0);
+    if (isTooClose) return;
+
+    // 2. AUTO-CLOSE KHUSUS LAWAN ARAH: Jika harga sudah bergerak jauh (>= 12 poin) dan muncul sinyal valid yang berlawanan arah,
+    // tutup otomatis posisi aktif yang berlawanan arah tersebut sebagai "Close Profit" (Won)
     let stateChanged = false;
     state.signals.forEach(s => {
       if (s.status === 'ACTIVE' && s.dir !== best.dir) {
@@ -652,14 +661,10 @@ function checkAutoSignal() {
         stateChanged = true;
       }
     });
-
     if (stateChanged) saveSignals();
 
-    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
-    if (recentSignals.length >= 3) return;
-
-    const isDuplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
-    if (isDuplicate) return;
+    const activeAfterClose = state.signals.filter(s => s.status === 'ACTIVE');
+    if (activeAfterClose.length >= 3) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
