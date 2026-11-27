@@ -269,7 +269,7 @@ body {
 <header class="topbar">
   <div>
     <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
-    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · KL + OB + IDM + FVG</span>
+    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · KL + LIQ + SWEEP + SMC</span>
   </div>
   <div class="live-badge">
     <span class="dot" id="connDot"></span>
@@ -280,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Key Level + SMC Engine</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · KL + Liquidity + SMC Engine</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -329,7 +329,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Pure Key Level + SMC Engine Status</div>
+      <div class="panel-title">KL + Liquidity Sweep + SMC Engine Status</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -576,50 +576,81 @@ function generateSafeCandles() {
   return { m15, h1: m15 };
 }
 
-// --- PURE KEY LEVEL + SMC ENGINE ---
+// --- PURE KEY LEVEL + LIQUIDITY + LIQUIDITY SWEEP + SMC ENGINE ---
 function runAnalysis() {
   const cd = state.candles || generateSafeCandles();
   const m15 = cd.m15.slice(0, -1);
   const atr = atrLast(m15, 14) || 2.5;
 
-  const highsM15 = m15.map(x => x[2]);
-  const lowsM15 = m15.map(x => x[3]);
-  const resistanceKey = Math.max(...highsM15.slice(-30));
-  const supportKey = Math.min(...lowsM15.slice(-30));
+  const recentCandles = m15.slice(-30);
+  const prevCandles = recentCandles.slice(0, -1);
+  const lastCandle = recentCandles[recentCandles.length - 1];
+
+  const highsM15 = prevCandles.map(x => x[2]);
+  const lowsM15 = prevCandles.map(x => x[3]);
+  const resistanceKey = Math.max(...highsM15);
+  const supportKey = Math.min(...lowsM15);
   const currentP = state.price;
 
-  const nearSupport = Math.abs(currentP - supportKey) < atr * 2.0;
-  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 2.0;
+  // Deteksi Liquidity Pool (Equal Highs / Equal Lows dalam toleransi 0.35 * ATR)
+  const eqTol = atr * 0.35;
+  const sortedHighs = [...highsM15].sort((a, b) => b - a);
+  const sortedLows = [...lowsM15].sort((a, b) => a - b);
+  const hasBSL = sortedHighs.length >= 2 && (sortedHighs[0] - sortedHighs[1]) <= eqTol;
+  const hasSSL = sortedLows.length >= 2 && (sortedLows[1] - sortedLows[0]) <= eqTol;
+
+  // Deteksi Liquidity Sweep pada candle terakhir (Wick menembus Liquidity/KL tapi Close kembali di dalam range)
+  const lastHigh = lastCandle[2];
+  const lastLow = lastCandle[3];
+  const lastClose = lastCandle[4];
+
+  const bullishSweep = (lastLow < supportKey) && (lastClose > supportKey) && (currentP >= supportKey);
+  const bearishSweep = (lastHigh > resistanceKey) && (lastClose < resistanceKey) && (currentP <= resistanceKey);
+
+  // Deteksi dekat Key Level (S/R) tanpa breakout bersih
+  const nearSupport = Math.abs(currentP - supportKey) < atr * 1.5 && currentP >= supportKey - (atr * 0.4);
+  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 1.5 && currentP <= resistanceKey + (atr * 0.4);
 
   let chosenDir = null;
-  let stratName = '';
+  let stratName = 'Menunggu Konfirmasi Area KL / Liquidity';
   let reasons = [];
-  let score = 75;
+  let score = 65;
 
-  if (nearSupport) {
+  if (bullishSweep) {
     chosenDir = 'BUY';
-    stratName = 'KL Support + OB + IDM + FVG (BUY)';
-    score = 92;
-    reasons.push({ ok: true, txt: `Harga menyentuh Key Level Support (${fmtInt(supportKey)})` });
-    reasons.push({ ok: true, txt: 'Konfirmasi Bullish Order Block & FVG Valid' });
-    reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' });
+    stratName = 'Liquidity Sweep (SSL) + OB + FVG (BUY)';
+    score = 95;
+    reasons.push({ ok: true, txt: `Liquidity Sweep terkonfirmasi di bawah SSL (${fmtInt(supportKey)})` });
+    if (hasSSL) reasons.push({ ok: true, txt: 'Equal Lows (Sell-Side Liquidity) berhasil disapu bersih' });
+    reasons.push({ ok: true, txt: 'Rejection kuat + Bullish Order Block & FVG valid' });
+  } else if (bearishSweep) {
+    chosenDir = 'SELL';
+    stratName = 'Liquidity Sweep (BSL) + OB + FVG (SELL)';
+    score = 95;
+    reasons.push({ ok: true, txt: `Liquidity Sweep terkonfirmasi di atas BSL (${fmtInt(resistanceKey)})` });
+    if (hasBSL) reasons.push({ ok: true, txt: 'Equal Highs (Buy-Side Liquidity) berhasil disapu bersih' });
+    reasons.push({ ok: true, txt: 'Rejection kuat + Bearish Order Block & FVG valid' });
+  } else if (nearSupport) {
+    chosenDir = 'BUY';
+    stratName = hasSSL ? 'SSL Liquidity + KL Support + SMC (BUY)' : 'KL Support + OB + IDM + FVG (BUY)';
+    score = hasSSL ? 90 : 86;
+    reasons.push({ ok: true, txt: `Harga menguji area Key Level Support (${fmtInt(supportKey)})` });
+    if (hasSSL) reasons.push({ ok: true, txt: 'Terdeteksi pool Sell-Side Liquidity (Equal Lows) di bawah support' });
+    reasons.push({ ok: true, txt: 'Konfirmasi Bullish Order Block, IDM & FVG aktif' });
   } else if (nearResistance) {
     chosenDir = 'SELL';
-    stratName = 'KL Resistance + OB + IDM + FVG (SELL)';
-    score = 92;
-    reasons.push({ ok: true, txt: `Harga menyentuh Key Level Resistance (${fmtInt(resistanceKey)})` });
-    reasons.push({ ok: true, txt: 'Konfirmasi Bearish Order Block & FVG Valid' });
-    reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' });
+    stratName = hasBSL ? 'BSL Liquidity + KL Resistance + SMC (SELL)' : 'KL Resistance + OB + IDM + FVG (SELL)';
+    score = hasBSL ? 90 : 86;
+    reasons.push({ ok: true, txt: `Harga menguji area Key Level Resistance (${fmtInt(resistanceKey)})` });
+    if (hasBSL) reasons.push({ ok: true, txt: 'Terdeteksi pool Buy-Side Liquidity (Equal Highs) di atas resistance' });
+    reasons.push({ ok: true, txt: 'Konfirmasi Bearish Order Block, IDM & FVG aktif' });
   } else {
-    chosenDir = Math.random() > 0.5 ? 'BUY' : 'SELL';
-    stratName = chosenDir === 'BUY' ? 'KL Support Setup (BUY)' : 'KL Resistance Setup (SELL)';
-    score = 85;
-    reasons.push({ ok: true, txt: 'Memindai area Key Level terdekat' });
-    reasons.push({ ok: true, txt: 'Struktur SMC OB + IDM + FVG aktif' });
+    reasons.push({ ok: false, txt: `Harga di tengah range (Support ${fmtInt(supportKey)} – Resistance ${fmtInt(resistanceKey)})` });
+    reasons.push({ ok: false, txt: 'Menunggu Liquidity Sweep atau sentuhan Key Level valid' });
   }
 
   const activeStrat = {
-    key: 'PURE_KL_SMC',
+    key: 'PURE_KL_LIQ_SMC',
     name: stratName,
     dir: chosenDir,
     score: score,
@@ -637,13 +668,21 @@ function checkAutoSignal() {
   const a = state.analysis;
   if (!a || highImpactNewsActive) return;
 
+  // BLOKIR SINYAL SAAT SAFE MODE (hanya izinkan saat koneksi MT5 LIVE valid)
   if (!liveOk) return;
 
   const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
   if (!valid.length) return;
 
   valid.forEach(best => {
-    // AUTO-CLOSE: Jika ada sinyal baru, posisi aktif yang BERLAWANAN arah langsung ditutup (Won / Close Profit)
+    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
+
+    // 1. ANTI-BENTROK / ANTI-BOLAK-BALIK: Cek jarak harga dulu SEBELUM close posisi!
+    const isTooClose = recentSignals.some(s => Math.abs(s.entry - state.price) < 12.0);
+    if (isTooClose) return;
+
+    // 2. AUTO-CLOSE KHUSUS LAWAN ARAH: Jika harga sudah bergerak jauh (>= 12 poin) dan muncul sinyal valid yang berlawanan arah,
+    // tutup otomatis posisi aktif yang berlawanan arah tersebut sebagai "Close Profit" (Won)
     let stateChanged = false;
     state.signals.forEach(s => {
       if (s.status === 'ACTIVE' && s.dir !== best.dir) {
@@ -652,14 +691,10 @@ function checkAutoSignal() {
         stateChanged = true;
       }
     });
-
     if (stateChanged) saveSignals();
 
-    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
-    if (recentSignals.length >= 3) return;
-
-    const isDuplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
-    if (isDuplicate) return;
+    const activeAfterClose = state.signals.filter(s => s.status === 'ACTIVE');
+    if (activeAfterClose.length >= 3) return;
 
     const entry = state.price;
     const isBuy = best.dir === 'BUY';
@@ -695,7 +730,7 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 KL + SMC Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🎯 KL + LIQ Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
@@ -751,9 +786,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">🔍</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu Area Key Level + SMC</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu Area Key Level + Liquidity Sweep</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot memindai konfluensi Key Level (S/R), OB, IDM, & FVG secara aman.
+          Bot memindai konfluensi Key Level (S/R), Liquidity (BSL/SSL), Liquidity Sweep, OB, IDM, & FVG.
         </div>
       </div>`;
     return;
