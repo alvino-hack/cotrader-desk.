@@ -108,7 +108,9 @@ body {
 .sig-status.active { color: var(--green); }
 .sig-status.won { color: var(--green); }
 .sig-status.tp1 { color: var(--gold); }
+.sig-status.pending { color: var(--gold); }
 .sig-status.loss { color: var(--red); }
+.sig-status.muted { color: var(--muted); }
 .news-banner {
   background: var(--red-bg);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -287,13 +289,22 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Engine Status (KL + ALCHEMIST)</div>
-      <div id="engineRules"></div>
-      <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
+      <div class="panel-title">Pengaturan Entry</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px" id="entryBtns"></div>
+      <div id="entryHelp" style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Maks. Sinyal Aktif</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="maxBtns"></div>
     </div>
     <div class="panel">
       <div class="panel-title">Ambang Skor Minimal</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="thrBtns"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Engine Status (KL + ALCHEMIST)</div>
+      <div id="engineRules"></div>
+      <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
   </section>
 
@@ -341,16 +352,14 @@ const WORKER_URL = "https://script.google.com/macros/s/AKfycbwoFPgcEw52vFAdloE49
 const POLL_MS = 5000;
 const CANDLE_POLL_MS = 25000;
 const SW = 2;
-const THR_DEFAULT = 80;
 const FVG_MAX_AGE = 15;
 const MIN_SL_ATR = 0.5;
 const MAX_SL_ATR = 2.0;
 const COOLDOWN_MS = 4 * 15 * 60 * 1000;
+const LIMIT_EXPIRE_MS = 4 * 15 * 60 * 1000;
 const KL_W = { kl: 25, fvg: 20, ob: 20, idm: 20, htf: 15 };
 
-// ---- ALCHEMIST: semua masukan ada di sini ----
 const ALCH = {
-  thr: 80,
   weights: { sweep: 20, cisd: 30, ote: 25, ocl: 25 },
   ts:  { lookback: 5,  range: 20 },
   ls:  { lookback: 10, range: 10 },
@@ -361,6 +370,11 @@ const ALCH = {
   requireOCL: false
 };
 
+const SETTINGS_KEY = 'eb_settings_v1';
+const settings = { entryMode: 'market', maxActive: 5, thr: 80 };
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) {}
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) {} }
+
 let liveOk = false;
 let highImpactNewsActive = false;
 let lastSentAt = { KL_BUY: 0, KL_SELL: 0, ALCH_BUY: 0, ALCH_SELL: 0 };
@@ -370,7 +384,6 @@ const state = {
   candles: null,
   candlesReal: false,
   analysis: null,
-  thr: THR_DEFAULT,
   signals: []
 };
 
@@ -380,7 +393,7 @@ try {
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v14', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v14', JSON.stringify(state.signals.slice(0, 100))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -493,7 +506,7 @@ function switchTab(tabId, title, btn) {
   btn.classList.add('active');
   if (tabId === 'chart') renderChart();
   if (tabId === 'stats') renderStats();
-  if (tabId === 'ai') { updateNotifUI(); checkEconomicNews(); }
+  if (tabId === 'ai') { updateNotifUI(); checkEconomicNews(); renderSettingsUI(); }
 }
 
 function jsonpGet(qs, validate) {
@@ -589,8 +602,6 @@ function hasSweep(c, dir, lookback) {
   return false;
 }
 
-// Sweep: cari dari candle sebelum candle terakhir yang sudah close, ke belakang sampai lookback.
-// Candle terakhir (c.length - 1) dibiarkan sebagai konfirmasi reaksi.
 function findSweep(c, dir, lookback, range) {
   const newest = c.length - 2;
   const oldest = Math.max(range, newest - lookback + 1);
@@ -606,8 +617,6 @@ function findSweep(c, dir, lookback, range) {
   return null;
 }
 
-// CISD: cek setiap candle lawan arah dari sweepIdx ke belakang (dalam cisdBackWindow).
-// Setelah sweep, harus ada close yang menembus open candle lawan arah tersebut.
 function findCISD(c, dir, sweepIdx) {
   for (let b = sweepIdx; b >= Math.max(0, sweepIdx - ALCH.cisdBackWindow); b--) {
     const opp = dir === 'BUY' ? c[b][4] < c[b][1] : c[b][4] > c[b][1];
@@ -621,7 +630,6 @@ function findCISD(c, dir, sweepIdx) {
   return null;
 }
 
-// OTE: zona retracement dari ekstrem setelah sweep (candle sweep ikut dihitung)
 function oteZone(c, dir, sw) {
   const after = c.slice(sw.idx);
   if (!after.length) return null;
@@ -635,42 +643,49 @@ function oteZone(c, dir, sw) {
 }
 
 // ================= Engine 1: KL + OB + IDM + FVG =================
+// Mengembalikan entry (market: harga sekarang, limit: tepi zona) dan slPrice.
 function evalKL(dir, c, h1, price, atr, kl) {
   const isBuy = dir === 'BUY';
   const pad = atr * 0.3;
+  const limit = settings.entryMode === 'limit';
 
   const fvg = findFVG(c, dir);
   const ob = fvg ? findOB(c, dir, fvg.i) : null;
   const zone = ob || fvg;
 
+  const notBroken = z => isBuy ? price >= z.lo - pad : price <= z.hi + pad;
+  const inside = z => price >= z.lo - pad && price <= z.hi + pad;
+
+  const fvgTag = !!fvg && (limit ? notBroken(fvg) : inside(fvg));
+  const obTag  = !!ob  && (limit ? notBroken(ob)  : inside(ob));
+  const zoneOk = fvgTag || obTag;
+
   const klOk = kl != null && Math.abs(price - kl) <= atr * 1.5;
-  const fvgOk = !!fvg && price >= fvg.lo - pad && price <= fvg.hi + pad;
-  const obOk = !!ob && price >= ob.lo - pad && price <= ob.hi + pad;
-  const zoneOk = fvgOk || obOk;
   const idmOk = hasSweep(c, dir, 20);
   const htfOk = htfTrend(h1) === (isBuy ? 'UP' : 'DOWN');
 
   const last = c[c.length - 1];
   const trigger = isBuy ? last[4] > last[1] : last[4] < last[1];
 
-  const score = (klOk ? KL_W.kl : 0) + (fvgOk ? KL_W.fvg : 0) + (obOk ? KL_W.ob : 0) +
+  const score = (klOk ? KL_W.kl : 0) + (fvgTag ? KL_W.fvg : 0) + (obTag ? KL_W.ob : 0) +
                 (idmOk ? KL_W.idm : 0) + (htfOk ? KL_W.htf : 0);
 
-  let slDist = null;
+  let entry = null, slPrice = null;
   if (zone) {
-    const slPrice = isBuy ? zone.lo - atr * 0.2 : zone.hi + atr * 0.2;
-    slDist = Math.abs(price - slPrice);
+    slPrice = isBuy ? zone.lo - atr * 0.2 : zone.hi + atr * 0.2;
+    entry = limit ? (isBuy ? zone.hi : zone.lo) : price;
   }
+  const slDist = entry != null ? Math.abs(entry - slPrice) : null;
   const slOk = slDist !== null && slDist >= atr * MIN_SL_ATR && slDist <= atr * MAX_SL_ATR;
 
-  const ready = htfOk && trigger && zoneOk && slOk && score >= state.thr;
+  const ready = htfOk && trigger && zoneOk && slOk && score >= settings.thr;
   return {
     eng: 'KL', label: 'KL+OB+IDM+FVG', dir, ready, score,
-    slDist: ready ? slDist : null,
+    entry, slPrice, slDist,
     reasons: [
       { ok: klOk,  txt: kl != null ? `Dekat Key Level ${isBuy ? 'Support' : 'Resistance'} (${kl.toFixed(2)})` : 'Key Level belum terbentuk' },
-      { ok: fvgOk, txt: fvg ? `Harga masuk FVG ${fvg.lo.toFixed(2)} - ${fvg.hi.toFixed(2)}` : 'FVG belum ada' },
-      { ok: obOk,  txt: ob ? `Harga masuk Order Block ${ob.lo.toFixed(2)} - ${ob.hi.toFixed(2)}` : 'Order Block belum ada' },
+      { ok: fvgTag, txt: fvg ? `FVG ${fvg.lo.toFixed(2)} - ${fvg.hi.toFixed(2)}` : 'FVG belum ada' },
+      { ok: obTag,  txt: ob ? `Order Block ${ob.lo.toFixed(2)} - ${ob.hi.toFixed(2)}` : 'Order Block belum ada' },
       { ok: idmOk, txt: 'Inducement (IDM) tersapu' },
       { ok: htfOk, txt: `Trend H1 searah (${htfTrend(h1)})` },
       { ok: trigger, txt: 'Candle konfirmasi searah sudah close' }
@@ -682,6 +697,7 @@ function evalKL(dir, c, h1, price, atr, kl) {
 function evalALCH(dir, c, price, atr) {
   const isBuy = dir === 'BUY';
   const pad = atr * ALCH.oclPadAtr;
+  const limit = settings.entryMode === 'limit';
 
   const sw = findSweep(c, dir, ALCH.ts.lookback, ALCH.ts.range) ||
              findSweep(c, dir, ALCH.ls.lookback, ALCH.ls.range);
@@ -689,33 +705,39 @@ function evalALCH(dir, c, price, atr) {
   const cisd = sw ? findCISD(c, dir, sw.idx) : null;
   const ote = sw ? oteZone(c, dir, sw) : null;
 
-  const oteOk = !!ote && price >= ote.lo && price <= ote.hi;
-  const oclOk = !!sc && price >= Math.min(sc[2], sc[3]) - pad && price <= Math.max(sc[2], sc[3]) + pad;
+  let oteOk = false, entry = null, slPrice = null;
+  if (sc && ote) {
+    slPrice = isBuy ? sc[3] - atr * 0.2 : sc[2] + atr * 0.2;
+    if (limit) {
+      entry = isBuy ? ote.hi : ote.lo;
+      oteOk = isBuy ? price > sc[3] - pad : price < sc[2] + pad;
+    } else {
+      entry = price;
+      oteOk = price >= ote.lo && price <= ote.hi;
+    }
+  }
 
+  const oclOk = !!sc && price >= Math.min(sc[2], sc[3]) - pad && price <= Math.max(sc[2], sc[3]) + pad;
   const last = c[c.length - 1];
   const trigger = isBuy ? last[4] > last[1] : last[4] < last[1];
 
-  let slDist = null;
-  if (sc) {
-    const slPrice = isBuy ? sc[3] - atr * 0.2 : sc[2] + atr * 0.2;
-    slDist = Math.abs(price - slPrice);
-  }
+  const slDist = entry != null ? Math.abs(entry - slPrice) : null;
   const slOk = slDist !== null && slDist >= atr * MIN_SL_ATR && slDist <= atr * MAX_SL_ATR;
 
   const W = ALCH.weights;
   const score = (sw ? W.sweep : 0) + (cisd ? W.cisd : 0) + (oteOk ? W.ote : 0) + (oclOk ? W.ocl : 0);
 
   const ready = !!sw && !!cisd && oteOk && trigger && slOk &&
-                (!ALCH.requireOCL || oclOk) && score >= ALCH.thr;
+                (!ALCH.requireOCL || oclOk) && score >= settings.thr;
 
   return {
     eng: 'ALCH', label: 'ALCHEMIST', dir, ready, score,
-    slDist: ready ? slDist : null,
+    entry, slPrice, slDist,
     reasons: [
       { ok: !!sw,   txt: sw ? 'Sweep terdeteksi' : 'Belum ada sweep' },
       { ok: !!cisd, txt: cisd ? `CISD terkonfirmasi di ${cisd.lvl.toFixed(2)}` : 'CISD belum terjadi' },
-      { ok: oteOk,  txt: ote ? `Harga di OTE ${ote.lo.toFixed(2)} - ${ote.hi.toFixed(2)}` : 'OTE belum terbentuk' },
-      { ok: oclOk,  txt: 'Harga kembali ke range candle sweep' },
+      { ok: oteOk,  txt: ote ? `OTE ${ote.lo.toFixed(2)} - ${ote.hi.toFixed(2)}` : 'OTE belum terbentuk' },
+      { ok: oclOk,  txt: 'Harga di range candle sweep' },
       { ok: trigger, txt: 'Candle konfirmasi searah sudah close' }
     ]
   };
@@ -746,8 +768,8 @@ function runAnalysis() {
   const results = [];
   ['BUY', 'SELL'].forEach(dir => {
     const kl = dir === 'BUY' ? support : resistance;
-    results.push({ ...evalKL(dir, c, state.candles.h1, price, atr, kl) });
-    results.push({ ...evalALCH(dir, c, price, atr) });
+    results.push(evalKL(dir, c, state.candles.h1, price, atr, kl));
+    results.push(evalALCH(dir, c, price, atr));
   });
 
   state.analysis = { atr, results, cT: Date.now() };
@@ -760,49 +782,51 @@ function checkAutoSignal() {
   if (!a || !a.results.length || highImpactNewsActive || !liveOk || !state.candlesReal) return;
 
   const now = Date.now();
-  const ready = a.results.filter(r => r.ready);
+  const price = state.price;
 
-  ready.forEach(best => {
+  a.results.filter(r => r.ready).forEach(best => {
     const key = `${best.eng}_${best.dir}`;
     if (now - lastSentAt[key] < COOLDOWN_MS) return;
 
     const isBuy = best.dir === 'BUY';
-    const entry = state.price;
+    // Limit yang harganya sudah melewati level langsung terisi di harga pasar
+    const fillNow = settings.entryMode === 'market' || (isBuy ? price <= best.entry : price >= best.entry);
+    const entryPx = fillNow ? price : best.entry;
+    const risk = Math.abs(entryPx - best.slPrice);
 
-    // Posisi aktif yang berlawanan arah ditutup dulu (close manual, bukan WON)
+    // Sinyal berlawanan: posisi aktif ditutup, pending dibatalkan
     let changed = false;
     state.signals.forEach(s => {
-      if (s.status === 'ACTIVE' && s.dir !== best.dir) {
-        s.status = 'CLOSED';
-        s.closeNote = 'Ditutup: sinyal berlawanan';
-        s.closePrice = entry;
-        changed = true;
+      if (s.dir === best.dir) return;
+      if (s.status === 'ACTIVE') {
+        s.status = 'CLOSED'; s.closeNote = 'Ditutup: sinyal berlawanan'; s.closePrice = price; changed = true;
+      } else if (s.status === 'PENDING') {
+        s.status = 'CANCELLED'; s.closeNote = 'Dibatalkan: sinyal berlawanan'; changed = true;
       }
     });
     if (changed) saveSignals();
 
-    const active = state.signals.filter(s => s.status === 'ACTIVE');
-    if (active.length >= 3) return;
-    const isDuplicate = active.some(s => s.dir === best.dir && Math.abs(s.entry - entry) < best.slDist);
-    if (isDuplicate) return;
+    const open = state.signals.filter(s => s.status === 'ACTIVE' || s.status === 'PENDING');
+    if (settings.maxActive > 0 && open.length >= settings.maxActive) return;
+    if (open.some(s => s.dir === best.dir && Math.abs(s.entry - entryPx) < risk)) return;
 
     lastSentAt[key] = now;
 
-    const risk = best.slDist;
-    const sl = isBuy ? entry - risk : entry + risk;
-    const tp1 = isBuy ? entry + risk * 1.5 : entry - risk * 1.5;
-    const tp2 = isBuy ? entry + risk * 2.5 : entry - risk * 2.5;
-    const tp3 = isBuy ? entry + risk * 4.0 : entry - risk * 4.0;
+    const sl = best.slPrice;
+    const tp1 = isBuy ? entryPx + risk * 1.5 : entryPx - risk * 1.5;
+    const tp2 = isBuy ? entryPx + risk * 2.5 : entryPx - risk * 2.5;
+    const tp3 = isBuy ? entryPx + risk * 4.0 : entryPx - risk * 4.0;
 
     const newSig = {
       id: 'SIG_' + now + '_' + Math.floor(Math.random() * 1000),
       pair: 'XAUUSD',
       tf: 'M15',
       dir: best.dir,
+      mode: fillNow && settings.entryMode === 'market' ? 'market' : 'limit',
       strat: `${best.label} (${best.dir})`,
       score: best.score,
       rr: '1:4.0',
-      entry: +entry.toFixed(2),
+      entry: +entryPx.toFixed(2),
       sl: +sl.toFixed(2),
       tp1: +tp1.toFixed(2),
       tp2: +tp2.toFixed(2),
@@ -812,7 +836,7 @@ function checkAutoSignal() {
       tp2Pips: Math.round(risk * 25),
       tp3Pips: Math.round(risk * 40),
       tp1Hit: false, tp2Hit: false, tp3Hit: false,
-      status: 'ACTIVE',
+      status: fillNow ? 'ACTIVE' : 'PENDING',
       createdAt: now,
       reasons: best.reasons
     };
@@ -820,24 +844,36 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 ${best.label} ${newSig.dir} XAUUSD`, `Entry: ${fmt(newSig.entry)} · SL: ${fmt(newSig.sl)}`);
+    const label = fillNow ? `Entry ${fmt(newSig.entry)}` : `Limit ${fmt(newSig.entry)} (pending)`;
+    sendAppNotification(`🎯 ${best.label} ${newSig.dir} XAUUSD`, `${label} · SL: ${fmt(newSig.sl)}`);
   });
 }
 
 function monitorSignals() {
   let changed = false;
   const p = state.price;
+  const now = Date.now();
 
   state.signals.forEach(s => {
-    if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
-    if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
-      s.tp1Hit = true; changed = true;
+    if (s.status === 'PENDING') {
+      if (now - s.createdAt > LIMIT_EXPIRE_MS) {
+        s.status = 'EXPIRED'; s.closeNote = 'Limit tidak terisi'; changed = true; return;
+      }
+      if (isBuy ? p <= s.sl : p >= s.sl) {
+        s.status = 'CANCELLED'; s.closeNote = 'SL tersentuh sebelum entry'; changed = true; return;
+      }
+      if (isBuy ? p <= s.entry : p >= s.entry) {
+        s.status = 'ACTIVE'; s.filledAt = now; changed = true;
+      }
+      return;
     }
-    if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
-      s.tp2Hit = true; changed = true;
-    }
+
+    if (s.status !== 'ACTIVE') return;
+
+    if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) { s.tp1Hit = true; changed = true; }
+    if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) { s.tp2Hit = true; changed = true; }
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
       s.tp3Hit = true; s.status = 'WON'; s.closePrice = p; changed = true;
     }
@@ -861,8 +897,8 @@ function timeAgo(ts) {
 
 function renderSignals() {
   const list = $('signalsList');
-  const activeCount = state.signals.filter(s => s.status === 'ACTIVE').length;
-  $('activeBadge').textContent = activeCount;
+  const openCount = state.signals.filter(s => s.status === 'ACTIVE' || s.status === 'PENDING').length;
+  $('activeBadge').textContent = openCount;
 
   if (!state.signals.length) {
     list.innerHTML = `
@@ -879,21 +915,28 @@ function renderSignals() {
   list.innerHTML = state.signals.map((s, idx) => {
     const isBuy = s.dir === 'BUY';
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const ago = timeAgo(s.createdAt);
     let statusHtml;
     if (s.status === 'ACTIVE') {
       statusHtml = s.tp1Hit
-        ? `<span class="sig-status tp1">● TP1 Hit · ${timeAgo(s.createdAt)}</span>`
-        : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`;
+        ? `<span class="sig-status tp1">● TP1 Hit · ${ago}</span>`
+        : `<span class="sig-status active">● Active · ${ago}</span>`;
+    } else if (s.status === 'PENDING') {
+      statusHtml = `<span class="sig-status pending">◌ Pending · ${ago}</span>`;
     } else if (s.status === 'WON') {
-      statusHtml = `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>`;
+      statusHtml = `<span class="sig-status won">● Won · ${ago}</span>`;
     } else if (s.status === 'LOSS') {
-      statusHtml = `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`;
+      statusHtml = `<span class="sig-status loss">● SL Hit · ${ago}</span>`;
+    } else if (s.status === 'EXPIRED' || s.status === 'CANCELLED') {
+      statusHtml = `<span class="sig-status muted">● ${s.status === 'EXPIRED' ? 'Expired' : 'Batal'} · ${ago}</span>`;
     } else {
-      statusHtml = `<span class="sig-status" style="color:var(--muted)">● Ditutup · ${timeAgo(s.createdAt)}</span>`;
+      statusHtml = `<span class="sig-status muted">● Ditutup · ${ago}</span>`;
     }
 
+    const dimmed = s.status === 'EXPIRED' || s.status === 'CANCELLED' ? 'opacity:0.5;' : '';
+
     return `
-    <div class="sig-card">
+    <div class="sig-card" style="${dimmed}">
       <div class="sig-head">
         <div class="sig-pair-wrap">
           <div class="gold-icon">Au</div>
@@ -904,7 +947,7 @@ function renderSignals() {
         ${statusHtml}
       </div>
       <div class="grid-3">
-        <div class="lvl-box"><div class="lvl-lbl">ENTRY</div><div class="lvl-val">${fmt(s.entry)}</div></div>
+        <div class="lvl-box"><div class="lvl-lbl">ENTRY${s.mode === 'limit' ? ' LIMIT' : ''}</div><div class="lvl-val">${fmt(s.entry)}</div></div>
         <div class="lvl-box sl"><div class="lvl-lbl">SL · ${s.slPips}p</div><div class="lvl-val">${fmt(s.sl)}</div></div>
         <div class="lvl-box ${s.tp1Hit ? 'tp-hit' : ''}"><div class="lvl-lbl">${s.tp1Hit ? '✓ ' : ''}TP1 · ${s.tp1Pips}p</div><div class="lvl-val">${fmt(s.tp1)}</div></div>
       </div>
@@ -913,7 +956,7 @@ function renderSignals() {
         <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}"><span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmt(s.tp3)}</span></span><span class="pips-tag">${s.tp3Pips}p</span></div>
       </div>
       <div class="sig-foot">
-        <span>${s.tf} · ${timeStr} · ${s.strat}</span>
+        <span>${s.tf} · ${timeStr} · ${s.strat} · ${s.mode === 'limit' ? 'LIMIT' : 'MARKET'}</span>
         <div class="foot-actions">
           <button class="foot-btn" onclick="openDetails(${idx})">Details ›</button>
         </div>
@@ -963,19 +1006,35 @@ function renderChart() {
   });
   svg.innerHTML = out;
 
-  $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup Aktif (${activeSig.dir})</div>
-    <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
-    <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
-    <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmt(activeSig.tp1)} / ${fmt(activeSig.tp2)} / ${fmt(activeSig.tp3)}</b></div>
-  ` : '<div style="font-size:12px;color:var(--muted)">Belum ada setup aktif.</div>';
+  const openList = state.signals.filter(s => s.status === 'ACTIVE' || s.status === 'PENDING');
+  $('activePlanBox').innerHTML = openList.length ? openList.map(s => `
+    <div class="panel-title">${s.status === 'PENDING' ? 'Pending' : 'Aktif'} (${s.dir} · ${s.mode === 'limit' ? 'LIMIT' : 'MARKET'})</div>
+    <div class="row-item"><span>Entry</span><b>${fmt(s.entry)}</b></div>
+    <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(s.sl)}</b></div>
+    <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmt(s.tp1)} / ${fmt(s.tp2)} / ${fmt(s.tp3)}</b></div>
+  `).join('') : '<div style="font-size:12px;color:var(--muted)">Belum ada setup aktif.</div>';
+}
+
+function btnStyle(on) {
+  return `margin:0;border-color:${on ? 'var(--gold)' : 'var(--line)'};color:${on ? 'var(--gold)' : 'var(--text)'}`;
+}
+
+function renderSettingsUI() {
+  $('entryBtns').innerHTML = [['market', 'Market'], ['limit', 'Limit di zona']].map(([v, l]) =>
+    `<button class="btn-sec" style="${btnStyle(settings.entryMode === v)}" onclick="setEntryMode('${v}')">${l}</button>`
+  ).join('');
+  $('entryHelp').textContent = settings.entryMode === 'limit'
+    ? 'Limit: entry di tepi zona dan hanya terisi jika harga kembali ke sana. Pending kedaluwarsa setelah 4 candle.'
+    : 'Market: entry di harga saat sinyal terdeteksi.';
+  $('maxBtns').innerHTML = [[3, '3'], [5, '5'], [10, '10'], [0, '∞']].map(([v, l]) =>
+    `<button class="btn-sec" style="${btnStyle(settings.maxActive === v)}" onclick="setMax(${v})">${l}</button>`
+  ).join('');
+  $('thrBtns').innerHTML = [70, 75, 80, 85].map(t =>
+    `<button class="btn-sec" style="${btnStyle(settings.thr === t)}" onclick="setThr(${t})">${t}%</button>`
+  ).join('');
 }
 
 function renderEngineUI() {
-  $('thrBtns').innerHTML = [70, 75, 80, 85].map(t =>
-    `<button class="btn-sec" style="margin:0;border-color:${state.thr === t ? 'var(--gold)' : 'var(--line)'};color:${state.thr === t ? 'var(--gold)' : 'var(--text)'}" onclick="setThr(${t})">${t}%</button>`
-  ).join('');
-
   const a = state.analysis;
   if (!a || !a.results.length) {
     $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle MT5...</div>';
@@ -994,13 +1053,16 @@ function renderEngineUI() {
   `).join('');
 }
 
-function setThr(t) { state.thr = t; ALCH.thr = t; renderEngineUI(); runAnalysis(); }
+function setEntryMode(m) { settings.entryMode = m; saveSettings(); renderSettingsUI(); runAnalysis(); }
+function setMax(n) { settings.maxActive = n; saveSettings(); renderSettingsUI(); checkAutoSignal(); }
+function setThr(t) { settings.thr = t; saveSettings(); renderSettingsUI(); runAnalysis(); }
 function forceScan() { refreshCandles(); checkEconomicNews(); }
 
 function renderStats() {
   const closed = state.signals.filter(s => s.status === 'WON' || s.status === 'LOSS');
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
+  const notFilled = state.signals.filter(s => s.status === 'EXPIRED' || s.status === 'CANCELLED').length;
   $('statsSummary').innerHTML = `
     <div class="panel-title">Statistik Performa</div>
     <div class="grid-3" style="margin-top:8px">
@@ -1008,6 +1070,7 @@ function renderStats() {
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
       <div class="lvl-box"><div class="lvl-lbl">Win Rate</div><div class="lvl-val">${closed.length ? wr + '%' : '—'}</div></div>
     </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">Limit tidak terisi / dibatalkan: ${notFilled}</div>
   `;
 }
 
@@ -1055,6 +1118,7 @@ async function refreshCandles() {
 
 updateNotifUI();
 checkEconomicNews();
+renderSettingsUI();
 renderSignals();
 renderEngineUI();
 runAnalysis();
