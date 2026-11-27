@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (Full Complete)</title>
+<title>Signals · Ekebilas Bot Pro (Fibo + Price Action)</title>
 <style>
 :root {
   --bg: #08090a;
@@ -269,7 +269,7 @@ body {
 <header class="topbar">
   <div>
     <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
-    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · KL + LIQ + SWEEP + SMC</span>
+    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · Fibo + PA + MTF + SMC</span>
   </div>
   <div class="live-badge">
     <span class="dot" id="connDot"></span>
@@ -280,7 +280,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · KL + Liquidity + SMC Engine</span>
+    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15/H1 · Fibo 0.618 + Price Action Engine</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -329,7 +329,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">KL + Liquidity Sweep + SMC Engine Status</div>
+      <div class="panel-title">Fibo Golden Pocket + Price Action Status</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -351,7 +351,7 @@ body {
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <b style="font-size:16px" id="modalTitle">Detail Analisis KL + SMC</b>
+      <b style="font-size:16px" id="modalTitle">Detail Analisis Fibo + Price Action</b>
       <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="modalBody" style="font-size:12px;line-height:1.6;color:var(--muted)"></div>
@@ -466,7 +466,7 @@ function sendAppNotification(title, body) {
 }
 
 function testNotification() {
-  sendAppNotification('🔔 Tes KL + SMC Bot', 'Notifikasi sistem berjalan lancar.');
+  sendAppNotification('🔔 Tes Fibo + PA Bot', 'Notifikasi sistem berjalan lancar.');
 }
 
 async function requestWakeLock() {
@@ -562,101 +562,154 @@ function atrLast(c, n = 14) {
   return a;
 }
 
+function emaLast(vals, n) {
+  if (!vals || vals.length < n) return null;
+  const k = 2 / (n + 1);
+  let e = vals.slice(0, n).reduce((a, b) => a + b, 0) / n;
+  for (let i = n; i < vals.length; i++) e = vals[i] * k + e * (1 - k);
+  return e;
+}
+
+function rsiLast(closes, n = 14) {
+  if (!closes || closes.length <= n) return 50;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= n; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  let avgGain = gains / n;
+  let avgLoss = losses / n;
+  for (let i = n + 1; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    avgGain = (avgGain * (n - 1) + (diff > 0 ? diff : 0)) / n;
+    avgLoss = (avgLoss * (n - 1) + (diff < 0 ? -diff : 0)) / n;
+  }
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
 function generateSafeCandles() {
   const m15 = [];
   let p = state.price - 10;
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 60; i++) {
     let o = p;
     let c = o + (Math.random() - 0.48) * 3;
     let h = Math.max(o, c) + Math.random() * 2;
     let l = Math.min(o, c) - Math.random() * 2;
-    m15.push([Date.now() - (50 - i)*900000, o, h, l, c, 100]);
+    m15.push([Date.now() - (60 - i)*900000, o, h, l, c, 100]);
     p = c;
   }
   return { m15, h1: m15 };
 }
 
-// --- PURE KEY LEVEL + LIQUIDITY + LIQUIDITY SWEEP + SMC ENGINE ---
+// --- MTF H1 + FIBO RETRACEMENT + PRICE ACTION + SMC ENGINE ---
 function runAnalysis() {
   const cd = state.candles || generateSafeCandles();
   const m15 = cd.m15.slice(0, -1);
+  const h1 = (cd.h1 && cd.h1.length > 20) ? cd.h1.slice(0, -1) : m15;
   const atr = atrLast(m15, 14) || 2.5;
 
-  const recentCandles = m15.slice(-30);
-  const prevCandles = recentCandles.slice(0, -1);
-  const lastCandle = recentCandles[recentCandles.length - 1];
+  // 1. H1 Trend Filter
+  const h1Closes = h1.map(x => x[4]);
+  const ema20H1 = emaLast(h1Closes, 20) || state.price;
+  const ema50H1 = emaLast(h1Closes, Math.min(50, h1Closes.length)) || ema20H1;
+  const h1Bullish = state.price > ema20H1 && ema20H1 >= ema50H1;
+  const h1Bearish = state.price < ema20H1 && ema20H1 <= ema50H1;
+  const h1TrendLabel = h1Bullish ? 'BULLISH' : (h1Bearish ? 'BEARISH' : 'RANGING');
 
-  const highsM15 = prevCandles.map(x => x[2]);
-  const lowsM15 = prevCandles.map(x => x[3]);
-  const resistanceKey = Math.max(...highsM15);
-  const supportKey = Math.min(...lowsM15);
+  // 2. RSI Momentum
+  const m15Closes = m15.map(x => x[4]);
+  const rsi = rsiLast(m15Closes, 14);
+
+  // 3. Fibonacci Retracement & Swing High/Low (30 candle terakhir)
+  const recentM15 = m15.slice(-30);
+  const swingHigh = Math.max(...recentM15.map(x => x[2]));
+  const swingLow = Math.min(...recentM15.map(x => x[3]));
+  const diffHL = swingHigh - swingLow;
+
+  // Level Golden Pocket Fibonacci Retracement (0.5 dan 0.618 dari Swing Low ke High)
+  const fib500 = swingHigh - (diffHL * 0.500);
+  const fib618 = swingHigh - (diffHL * 0.618);
   const currentP = state.price;
 
-  // Deteksi Liquidity Pool (Equal Highs / Equal Lows dalam toleransi 0.35 * ATR)
-  const eqTol = atr * 0.35;
-  const sortedHighs = [...highsM15].sort((a, b) => b - a);
-  const sortedLows = [...lowsM15].sort((a, b) => a - b);
-  const hasBSL = sortedHighs.length >= 2 && (sortedHighs[0] - sortedHighs[1]) <= eqTol;
-  const hasSSL = sortedLows.length >= 2 && (sortedLows[1] - sortedLows[0]) <= eqTol;
+  // Cek apakah harga berada di area Golden Pocket Fibo (toleransi 0.4 * ATR)
+  const inFiboBuyZone = Math.abs(currentP - fib618) < atr * 0.8 || Math.abs(currentP - fib500) < atr * 0.8;
+  const inFiboSellZone = Math.abs(currentP - fib500) < atr * 0.8 || Math.abs(currentP - fib618) < atr * 0.8;
 
-  // Deteksi Liquidity Sweep pada candle terakhir (Wick menembus Liquidity/KL tapi Close kembali di dalam range)
-  const lastHigh = lastCandle[2];
-  const lastLow = lastCandle[3];
-  const lastClose = lastCandle[4];
+  // 4. Price Action Patterns (Pin Bar / Hammer & Engulfing) pada 2 candle terakhir
+  const lastC = recentM15[recentM15.length - 1];
+  const prevC = recentM15[recentM15.length - 2];
 
-  const bullishSweep = (lastLow < supportKey) && (lastClose > supportKey) && (currentP >= supportKey);
-  const bearishSweep = (lastHigh > resistanceKey) && (lastClose < resistanceKey) && (currentP <= resistanceKey);
+  const lOpen = lastC[1], lHigh = lastC[2], lLow = lastC[3], lClose = lastC[4];
+  const pOpen = prevC[1], pClose = prevC[4];
 
-  // Deteksi dekat Key Level (S/R) tanpa breakout bersih
-  const nearSupport = Math.abs(currentP - supportKey) < atr * 1.5 && currentP >= supportKey - (atr * 0.4);
-  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 1.5 && currentP <= resistanceKey + (atr * 0.4);
+  const bodySize = Math.abs(lClose - lOpen);
+  const totalCandleSize = lHigh - lLow;
+  const upperWick = lHigh - Math.max(lOpen, lClose);
+  const lowerWick = Math.min(lOpen, lClose) - lLow;
+
+  // Pola Pin Bar / Hammer (Wick minimal 60% dari total panjang candle)
+  const isPinBarBuy = lowerWick >= totalCandleSize * 0.55 && bodySize <= totalCandleSize * 0.4 && lClose > lOpen;
+  const isPinBarSell = upperWick >= totalCandleSize * 0.55 && bodySize <= totalCandleSize * 0.4 && lClose < lOpen;
+
+  // Pola Engulfing (Body candle sekarang melahap body candle sebelumnya)
+  const isBullishEngulfing = (lClose > lOpen) && (pClose < pOpen) && (lClose >= pOpen) && (lOpen <= pClose);
+  const isBearishEngulfing = (lClose < lOpen) && (pClose > pOpen) && (lClose <= pOpen) && (lOpen >= pClose);
 
   let chosenDir = null;
-  let stratName = 'Menunggu Konfirmasi Area KL / Liquidity';
+  let stratName = `Menunggu Setup Fibo + PA (H1 ${h1TrendLabel})`;
   let reasons = [];
-  let score = 65;
+  let score = 60;
 
-  if (bullishSweep) {
+  if (inFiboBuyZone && (isPinBarBuy || isBullishEngulfing)) {
     chosenDir = 'BUY';
-    stratName = 'Liquidity Sweep (SSL) + OB + FVG (BUY)';
-    score = 95;
-    reasons.push({ ok: true, txt: `Liquidity Sweep terkonfirmasi di bawah SSL (${fmtInt(supportKey)})` });
-    if (hasSSL) reasons.push({ ok: true, txt: 'Equal Lows (Sell-Side Liquidity) berhasil disapu bersih' });
-    reasons.push({ ok: true, txt: 'Rejection kuat + Bullish Order Block & FVG valid' });
-  } else if (bearishSweep) {
+    stratName = isPinBarBuy ? 'Fibo Golden Pocket (0.618) + Pin Bar (BUY)' : 'Fibo Retracement + Bullish Engulfing (BUY)';
+    score = 94;
+    if (h1Bullish) score += 4;
+    if (rsi <= 42) score += 2;
+    score = Math.min(99, score);
+
+    reasons.push({ ok: true, txt: `Harga mantul di Area Golden Pocket Fibo (${fmtInt(fib618)} - ${fmtInt(fib500)})` });
+    reasons.push({ ok: true, txt: isPinBarBuy ? 'Pola Price Action: Pin Bar / Hammer Bullish Valid' : 'Pola Price Action: Bullish Engulfing Kuat' });
+    reasons.push({ ok: !h1Bearish, txt: `Filter Tren H1: ${h1TrendLabel} | RSI M15: ${Math.round(rsi)}` });
+  } else if (inFiboSellZone && (isPinBarSell || isBearishEngulfing)) {
     chosenDir = 'SELL';
-    stratName = 'Liquidity Sweep (BSL) + OB + FVG (SELL)';
-    score = 95;
-    reasons.push({ ok: true, txt: `Liquidity Sweep terkonfirmasi di atas BSL (${fmtInt(resistanceKey)})` });
-    if (hasBSL) reasons.push({ ok: true, txt: 'Equal Highs (Buy-Side Liquidity) berhasil disapu bersih' });
-    reasons.push({ ok: true, txt: 'Rejection kuat + Bearish Order Block & FVG valid' });
-  } else if (nearSupport) {
+    stratName = isPinBarSell ? 'Fibo Golden Pocket (0.618) + Pin Bar (SELL)' : 'Fibo Retracement + Bearish Engulfing (SELL)';
+    score = 94;
+    if (h1Bearish) score += 4;
+    if (rsi >= 58) score += 2;
+    score = Math.min(99, score);
+
+    reasons.push({ ok: true, txt: `Harga rejection di Area Golden Pocket Fibo (${fmtInt(fib500)} - ${fmtInt(fib618)})` });
+    reasons.push({ ok: true, txt: isPinBarSell ? 'Pola Price Action: Pin Bar / Shooting Star Valid' : 'Pola Price Action: Bearish Engulfing Kuat' });
+    reasons.push({ ok: !h1Bullish, txt: `Filter Tren H1: ${h1TrendLabel} | RSI M15: ${Math.round(rsi)}` });
+  } else if (inFiboBuyZone) {
     chosenDir = 'BUY';
-    stratName = hasSSL ? 'SSL Liquidity + KL Support + SMC (BUY)' : 'KL Support + OB + IDM + FVG (BUY)';
-    score = hasSSL ? 90 : 86;
-    reasons.push({ ok: true, txt: `Harga menguji area Key Level Support (${fmtInt(supportKey)})` });
-    if (hasSSL) reasons.push({ ok: true, txt: 'Terdeteksi pool Sell-Side Liquidity (Equal Lows) di bawah support' });
-    reasons.push({ ok: true, txt: 'Konfirmasi Bullish Order Block, IDM & FVG aktif' });
-  } else if (nearResistance) {
+    stratName = 'Fibo Retracement Zone (BUY Setup)';
+    score = h1Bearish ? 70 : 85;
+    reasons.push({ ok: !h1Bearish, txt: `Harga di Area Fibo 0.5 - 0.618 (${fmtInt(fib618)})` });
+    reasons.push({ ok: false, txt: 'Menunggu konfirmasi Price Action (Pin Bar / Engulfing)' });
+  } else if (inFiboSellZone) {
     chosenDir = 'SELL';
-    stratName = hasBSL ? 'BSL Liquidity + KL Resistance + SMC (SELL)' : 'KL Resistance + OB + IDM + FVG (SELL)';
-    score = hasBSL ? 90 : 86;
-    reasons.push({ ok: true, txt: `Harga menguji area Key Level Resistance (${fmtInt(resistanceKey)})` });
-    if (hasBSL) reasons.push({ ok: true, txt: 'Terdeteksi pool Buy-Side Liquidity (Equal Highs) di atas resistance' });
-    reasons.push({ ok: true, txt: 'Konfirmasi Bearish Order Block, IDM & FVG aktif' });
+    stratName = 'Fibo Retracement Zone (SELL Setup)';
+    score = h1Bullish ? 70 : 85;
+    reasons.push({ ok: !h1Bullish, txt: `Harga di Area Fibo Retracement (${fmtInt(fib500)})` });
+    reasons.push({ ok: false, txt: 'Menunggu konfirmasi Price Action (Pin Bar / Engulfing)' });
   } else {
-    reasons.push({ ok: false, txt: `Harga di tengah range (Support ${fmtInt(supportKey)} – Resistance ${fmtInt(resistanceKey)})` });
-    reasons.push({ ok: false, txt: 'Menunggu Liquidity Sweep atau sentuhan Key Level valid' });
+    reasons.push({ ok: false, txt: `Menunggu koreksi harga ke Area Golden Pocket Fibo (${fmtInt(fib618)} - ${fmtInt(fib500)})` });
+    reasons.push({ ok: false, txt: `Tren H1: ${h1TrendLabel} | RSI: ${Math.round(rsi)}` });
   }
 
   const activeStrat = {
-    key: 'PURE_KL_LIQ_SMC',
+    key: 'FIBO_PA_MTF_SMC',
     name: stratName,
     dir: chosenDir,
     score: score,
     reasons: reasons,
-    supportKey,
-    resistanceKey
+    swingHigh,
+    swingLow
   };
 
   state.analysis = { atr, strats: [activeStrat], cT: Date.now() };
@@ -730,7 +783,7 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 KL + LIQ Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🎯 Fibo + PA Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
   });
 }
 
@@ -786,9 +839,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">🔍</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu Area Key Level + Liquidity Sweep</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu Golden Pocket Fibo + Price Action</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot memindai konfluensi Key Level (S/R), Liquidity (BSL/SSL), Liquidity Sweep, OB, IDM, & FVG.
+          Bot memindai area Fibo 0.5/0.618, pola Pin Bar/Engulfing, tren H1, dan RSI momentum.
         </div>
       </div>`;
     return;
@@ -865,7 +918,7 @@ function renderChart() {
   });
   svg.innerHTML = out;
   $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup KL + SMC Aktif (${activeSig.dir})</div>
+    <div class="panel-title">Setup Fibo + PA Aktif (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
     <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
@@ -899,7 +952,7 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Performa KL + SMC Engine</div>
+    <div class="panel-title">Statistik Performa Fibo + PA Engine</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
