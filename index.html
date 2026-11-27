@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<title>Signals · Ekebilas Bot Pro (Full Complete)</title>
+<title>Signals · Ekebilas Bot Pro</title>
 <style>
 :root {
   --bg: #08090a;
@@ -27,7 +27,6 @@
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
-  -ms-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
@@ -40,8 +39,6 @@ body {
   display: flex; flex-direction: column; overflow: hidden;
   padding-top: env(safe-area-inset-top, 0px);
 }
-
-/* Header */
 .topbar {
   flex: 0 0 auto;
   display: flex; justify-content: space-between; align-items: center;
@@ -59,8 +56,6 @@ body {
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
 .dot.sim { background: var(--gold); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-
-/* Ticker Strip */
 .ticker {
   flex: 0 0 auto;
   display: flex; justify-content: space-between; align-items: center;
@@ -70,8 +65,6 @@ body {
   font-size: 12px;
 }
 .ticker-price { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; }
-
-/* Main Scrollable Views */
 .view-container {
   flex: 1 1 auto; overflow-y: auto;
   padding: 14px 16px 90px;
@@ -81,8 +74,6 @@ body {
 .tab-view { display: none; }
 .tab-view.active { display: block; animation: fadeIn 0.2s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-
-/* Signal Card */
 .sig-card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -90,17 +81,6 @@ body {
   padding: 14px;
   margin-bottom: 14px;
 }
-.sig-card.news-alert-card {
-  background: linear-gradient(135deg, #2a1215, #121417);
-  border: 2px solid var(--red);
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
-  animation: newsGlow 1.5s infinite alternate;
-}
-@keyframes newsGlow {
-  from { border-color: rgba(239, 68, 68, 0.4); }
-  to { border-color: rgba(239, 68, 68, 1); }
-}
-
 .sig-head {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 12px;
@@ -129,8 +109,6 @@ body {
 .sig-status.won { color: var(--green); }
 .sig-status.tp1 { color: var(--gold); }
 .sig-status.loss { color: var(--red); }
-
-/* News Banner Warning */
 .news-banner {
   background: var(--red-bg);
   border: 1px solid rgba(239, 68, 68, 0.3);
@@ -140,8 +118,6 @@ body {
   display: flex; align-items: center; gap: 10px;
   font-size: 12px; color: #fca5a5; font-weight: 600;
 }
-
-/* Grid 3 */
 .grid-3 {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
   margin-bottom: 8px;
@@ -161,8 +137,6 @@ body {
 .lvl-val { font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; }
 .lvl-box.sl .lvl-val { color: var(--red); }
 .lvl-box.tp-hit .lvl-val { color: var(--green); }
-
-/* Grid 2 */
 .grid-2 {
   display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
   margin-bottom: 12px;
@@ -180,8 +154,6 @@ body {
   font-size: 10px; font-weight: 600; color: var(--muted);
   background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;
 }
-
-/* Card Footer */
 .sig-foot {
   display: flex; justify-content: space-between; align-items: center;
   padding-top: 10px; border-top: 1px solid var(--line);
@@ -193,9 +165,6 @@ body {
   font-family: inherit; font-size: 12px; font-weight: 600;
   cursor: pointer; padding: 0; display: flex; align-items: center; gap: 4px;
 }
-.foot-btn.gold { color: var(--gold); }
-
-/* Panel */
 .panel {
   background: var(--card); border: 1px solid var(--line);
   border-radius: 14px; padding: 14px; margin-bottom: 12px;
@@ -222,8 +191,6 @@ body {
   border: 1px solid var(--green); background: var(--green-bg);
   color: var(--green); font-weight: 700; font-size: 12px; cursor: pointer;
 }
-
-/* Modal */
 .modal-bg {
   position: fixed; inset: 0; background: rgba(0,0,0,0.75);
   display: none; align-items: flex-end; justify-content: center; z-index: 50;
@@ -235,8 +202,6 @@ body {
   border-top: 1px solid var(--line); border-radius: 20px 20px 0 0;
   padding: 18px 18px calc(24px + env(safe-area-inset-bottom, 0px));
 }
-
-/* Bottom Nav */
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
   background: rgba(12, 13, 15, 0.96);
@@ -260,9 +225,7 @@ body {
   font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 999px;
 }
 </style>
-<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#08090a">
-<link rel="icon" href="icon-192.png" type="image/png">
 </head>
 <body>
 
@@ -280,7 +243,7 @@ body {
 <div class="ticker">
   <div>
     <span style="font-weight:700">XAUUSD</span>
-    <span style="color:var(--muted);margin-left:6px" id="tfLabel">M15 · Key Level + SMC Engine</span>
+    <span style="color:var(--muted);margin-left:6px">M15 · KL + SMC Engine</span>
   </div>
   <div>
     <span class="ticker-price" id="livePrice">—</span>
@@ -289,11 +252,7 @@ body {
 </div>
 
 <main class="view-container">
-  <!-- TAB 1: SIGNALS -->
   <section class="tab-view active" id="view-signals">
-    <div id="notifBanner" style="margin-bottom:12px;display:none">
-      <button class="btn-notif" onclick="requestNotifPermission()">🔔 AKTIFKAN NOTIFIKASI SINYAL HP</button>
-    </div>
     <div id="highImpactNewsAlert" class="news-banner" style="display:none">
       <span>🚨</span>
       <div><b>BREAKING NEWS ALERT:</b> <span id="newsDescText">High Impact News terdeteksi!</span></div>
@@ -301,7 +260,6 @@ body {
     <div id="signalsList"></div>
   </section>
 
-  <!-- TAB 2: CHART -->
   <section class="tab-view" id="view-chart">
     <div class="panel">
       <div class="panel-title">Live Chart XAUUSD (M15)</div>
@@ -310,7 +268,6 @@ body {
     <div class="panel" id="activePlanBox"></div>
   </section>
 
-  <!-- TAB 3: AI ENGINE -->
   <section class="tab-view" id="view-ai">
     <div class="panel">
       <div class="panel-title">Kalender & Deteksi News Besar (USD/Gold)</div>
@@ -326,39 +283,36 @@ body {
         <span>Status Notifikasi HP</span>
         <b id="notifStatusText" style="color:var(--gold)">Mengecek...</b>
       </div>
+      <button class="btn-notif" id="notifBtn" onclick="requestNotifPermission()" style="display:none;margin-top:8px">🔔 AKTIFKAN NOTIFIKASI</button>
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Pure Key Level + SMC Engine Status</div>
+      <div class="panel-title">KL + OB + IDM + FVG Engine Status</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
     <div class="panel">
-      <div class="panel-title">Ambang Skor Minimal (Locked @ 80%)</div>
+      <div class="panel-title">Ambang Skor Minimal</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px" id="thrBtns"></div>
     </div>
   </section>
 
-  <!-- TAB 4: STATS -->
   <section class="tab-view" id="view-stats">
     <div class="panel" id="statsSummary"></div>
-    <div class="panel" id="btPanel"></div>
     <button class="btn-sec" onclick="clearHistory()">RESET RIWAYAT SINYAL</button>
   </section>
 </main>
 
-<!-- Detail Modal -->
 <div class="modal-bg" id="detailModal" onclick="if(event.target===this)closeModal()">
   <div class="modal-sheet">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <b style="font-size:16px" id="modalTitle">Detail Analisis KL + SMC</b>
+      <b style="font-size:16px" id="modalTitle">Detail Analisis</b>
       <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
     </div>
     <div id="modalBody" style="font-size:12px;line-height:1.6;color:var(--muted)"></div>
   </div>
 </div>
 
-<!-- Bottom Navigation -->
 <nav class="bottom-nav">
   <button class="nav-item active" onclick="switchTab('signals', 'Signals', this)">
     <span class="nav-icon">📊</span>
@@ -369,7 +323,7 @@ body {
     <span class="nav-icon">🕯️</span>
     <span>Chart</span>
   </button>
-  <button class="nav-item" onclick="switchTab('ai', 'AI Scanner', this)">
+  <button class="nav-item" onclick="switchTab('ai', 'AI Engine', this)">
     <span class="nav-icon">🤖</span>
     <span>AI Engine</span>
   </button>
@@ -382,32 +336,33 @@ body {
 <script>
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtInt = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const WORKER_URL = "https://script.google.com/macros/s/AKfycbwoFPgcEw52vFAdloE494I_0EmLb_c0dUdau3qolKnif_Ywe5btJL7qLJ5E8xG7zh-N/exec";
 const POLL_MS = 5000;
 const CANDLE_POLL_MS = 25000;
+const SW = 2;
+const WEIGHTS = { kl: 25, fvg: 20, ob: 20, idm: 20, htf: 15 };
 
 let liveOk = false;
-let wakeLock = null;
 let highImpactNewsActive = false;
 
 const state = {
-  price: 3865.00,
+  price: null,
   hist: [],
   candles: null,
+  candlesReal: false,
   analysis: null,
   thr: 80,
   signals: []
 };
 
 try {
-  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v13_full') || '[]');
+  const saved = JSON.parse(localStorage.getItem('eb_auto_signals_v14') || '[]');
   if (Array.isArray(saved)) state.signals = saved;
 } catch (e) {}
 
 function saveSignals() {
-  try { localStorage.setItem('eb_auto_signals_v13_full', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
+  try { localStorage.setItem('eb_auto_signals_v14', JSON.stringify(state.signals.slice(0, 50))); } catch (e) {}
 }
 
 function playAlertTone() {
@@ -428,18 +383,22 @@ function playAlertTone() {
 }
 
 function updateNotifUI() {
-  if (!('Notification' in window)) { $('notifStatusText').textContent = 'Tidak Didukung'; return; }
+  if (!('Notification' in window)) {
+    $('notifStatusText').textContent = 'Tidak Didukung';
+    $('notifBtn').style.display = 'none';
+    return;
+  }
   const perm = Notification.permission;
   if (perm === 'granted') {
-    $('notifBanner').style.display = 'none';
+    $('notifBtn').style.display = 'none';
     $('notifStatusText').textContent = 'AKTIF (ON)';
     $('notifStatusText').style.color = 'var(--green)';
   } else if (perm === 'denied') {
-    $('notifBanner').style.display = 'none';
+    $('notifBtn').style.display = 'none';
     $('notifStatusText').textContent = 'DIBLOKIR';
     $('notifStatusText').style.color = 'var(--red)';
   } else {
-    $('notifBanner').style.display = 'block';
+    $('notifBtn').style.display = 'block';
     $('notifStatusText').textContent = 'BELUM DIAKTIFKAN';
     $('notifStatusText').style.color = 'var(--gold)';
   }
@@ -456,7 +415,7 @@ function sendAppNotification(title, body) {
   playAlertTone();
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   if ('Notification' in window && Notification.permission === 'granted') {
-    const opts = { body, icon: 'icon-192.png', badge: 'icon-192.png', vibrate: [200, 100, 200], tag: 'ekebilas-' + Date.now(), renotify: true };
+    const opts = { body, icon: 'icon-192.png', tag: 'ekebilas-' + Date.now(), renotify: true };
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
       navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts));
     } else {
@@ -469,31 +428,18 @@ function testNotification() {
   sendAppNotification('🔔 Tes KL + SMC Bot', 'Notifikasi sistem berjalan lancar.');
 }
 
-async function requestWakeLock() {
-  try {
-    if ('wakeLock' in navigator && !wakeLock) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => { wakeLock = null; });
-    }
-  } catch (e) {}
-}
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') { requestWakeLock(); pollPrice(); }
-});
-
 async function checkEconomicNews() {
   try {
     const res = await fetch('https://nfs.faireconomy.media/ff_calendar_thisweek.json');
     if (!res.ok) return;
     const data = await res.json();
     const now = new Date();
-    const usdHighNews = data.filter(item => item.country === 'USD' && item.impact === 'High');
+    const usdHigh = data.filter(item => item.country === 'USD' && item.impact === 'High');
     let activeAlert = false;
     let newsTitle = '';
 
-    usdHighNews.forEach(item => {
-      const newsTime = new Date(item.date);
-      const diffMins = (newsTime - now) / 60000;
+    usdHigh.forEach(item => {
+      const diffMins = (new Date(item.date) - now) / 60000;
       if (diffMins >= -10 && diffMins <= 20) {
         activeAlert = true;
         newsTitle = item.title;
@@ -512,10 +458,10 @@ async function checkEconomicNews() {
       $('newsStatusUI').style.color = 'var(--green)';
     }
 
-    const upcoming = usdHighNews.filter(item => new Date(item.date) > now).slice(0, 3);
-    $('newsDetailBox').innerHTML = upcoming.length ? upcoming.map(n => 
-      `<div>• <b>${n.title}</b> (${new Date(n.date).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})})</div>`
-    ).join('') : 'Tidak ada jadwal High Impact USD berikutnya hari ini.';
+    const upcoming = usdHigh.filter(item => new Date(item.date) > now).slice(0, 3);
+    $('newsDetailBox').innerHTML = upcoming.length
+      ? upcoming.map(n => `<div>• <b>${n.title}</b> (${new Date(n.date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})</div>`).join('')
+      : 'Tidak ada jadwal High Impact USD berikutnya.';
   } catch (e) {
     $('newsDetailBox').innerHTML = 'Gagal memuat kalender ekonomi.';
   }
@@ -562,115 +508,189 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-function generateSafeCandles() {
-  const m15 = [];
-  let p = state.price - 10;
-  for (let i = 0; i < 50; i++) {
-    let o = p;
-    let c = o + (Math.random() - 0.48) * 3;
-    let h = Math.max(o, c) + Math.random() * 2;
-    let l = Math.min(o, c) - Math.random() * 2;
-    m15.push([Date.now() - (50 - i)*900000, o, h, l, c, 100]);
-    p = c;
+// --- KL + OB + IDM + FVG ENGINE (dihitung dari candle nyata) ---
+// Candle format: [t, o, h, l, c, v]
+
+function findSwings(c) {
+  const highs = [], lows = [];
+  for (let i = SW; i < c.length - SW; i++) {
+    let isH = true, isL = true;
+    for (let k = 1; k <= SW; k++) {
+      if (c[i][2] <= c[i - k][2] || c[i][2] <= c[i + k][2]) isH = false;
+      if (c[i][3] >= c[i - k][3] || c[i][3] >= c[i + k][3]) isL = false;
+    }
+    if (isH) highs.push(c[i][2]);
+    if (isL) lows.push(c[i][3]);
   }
-  return { m15, h1: m15 };
+  return { highs, lows };
 }
 
-// --- PURE KEY LEVEL + SMC ENGINE ---
+function findFVG(c, dir, lookback) {
+  const start = Math.max(2, c.length - lookback);
+  for (let i = c.length - 1; i >= start; i--) {
+    if (dir === 'BUY' && c[i][3] > c[i - 2][2]) {
+      const lo = c[i - 2][2], hi = c[i][3];
+      if (!c.slice(i + 1).some(x => x[3] <= lo)) return { lo, hi, i };
+    }
+    if (dir === 'SELL' && c[i][2] < c[i - 2][3]) {
+      const hi = c[i - 2][3], lo = c[i][2];
+      if (!c.slice(i + 1).some(x => x[2] >= hi)) return { lo, hi, i };
+    }
+  }
+  return null;
+}
+
+function findOB(c, dir, fvgIdx) {
+  for (let j = fvgIdx - 2; j >= Math.max(0, fvgIdx - 8); j--) {
+    const bull = c[j][4] > c[j][1];
+    if (dir === 'BUY' && !bull) return { lo: c[j][3], hi: c[j][2] };
+    if (dir === 'SELL' && bull) return { lo: c[j][3], hi: c[j][2] };
+  }
+  return null;
+}
+
+function hasSweep(c, dir, lookback) {
+  const start = Math.max(1, c.length - lookback);
+  for (let k = start; k < c.length - 2; k++) {
+    if (dir === 'BUY') {
+      const lvl = c[k][3];
+      if (!(lvl < c[k - 1][3] && lvl < c[k + 1][3])) continue;
+      for (let m = k + 1; m < c.length; m++) {
+        if (c[m][3] < lvl && c[m][4] > lvl) return true;
+      }
+    } else {
+      const lvl = c[k][2];
+      if (!(lvl > c[k - 1][2] && lvl > c[k + 1][2])) continue;
+      for (let m = k + 1; m < c.length; m++) {
+        if (c[m][2] > lvl && c[m][4] < lvl) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function htfTrend(h1) {
+  if (!h1) return 'NONE';
+  const closed = h1.slice(0, -1);
+  if (closed.length < 20) return 'NONE';
+  const sma = closed.slice(-20).reduce((a, x) => a + x[4], 0) / 20;
+  return closed[closed.length - 1][4] > sma ? 'UP' : 'DOWN';
+}
+
+function evalStrategy(dir, c, h1, price, atr, levels) {
+  const isBuy = dir === 'BUY';
+  const kl = isBuy ? levels.support : levels.resistance;
+  const pad = atr * 0.3;
+
+  const fvg = findFVG(c, dir, 40);
+  const ob = fvg ? findOB(c, dir, fvg.i) : null;
+
+  const klOk = kl !== null && Math.abs(price - kl) <= atr * 1.5;
+  const fvgOk = !!fvg && price >= fvg.lo - pad && price <= fvg.hi + pad;
+  const obOk = !!ob && price >= ob.lo - pad && price <= ob.hi + pad;
+  const idmOk = hasSweep(c, dir, 20);
+  const trend = htfTrend(h1);
+  const htfOk = trend === (isBuy ? 'UP' : 'DOWN');
+
+  const last = c[c.length - 1];
+  const trigger = isBuy ? last[4] > last[1] : last[4] < last[1];
+
+  const score = (klOk ? WEIGHTS.kl : 0) + (fvgOk ? WEIGHTS.fvg : 0) +
+                (obOk ? WEIGHTS.ob : 0) + (idmOk ? WEIGHTS.idm : 0) +
+                (htfOk ? WEIGHTS.htf : 0);
+
+  let slDist = null;
+  if (ob) {
+    const slPrice = isBuy ? ob.lo - atr * 0.2 : ob.hi + atr * 0.2;
+    slDist = Math.abs(price - slPrice);
+  }
+  const slOk = slDist !== null && slDist >= atr * 0.5 && slDist <= atr * 2.5;
+  const ready = trigger && slOk && (fvgOk || obOk) && score >= state.thr;
+
+  const reasons = [
+    { ok: klOk,  txt: kl != null ? `Dekat Key Level ${isBuy ? 'Support' : 'Resistance'} (${kl.toFixed(2)})` : 'Key Level belum terbentuk' },
+    { ok: fvgOk, txt: fvg ? `Harga masuk FVG ${fvg.lo.toFixed(2)} - ${fvg.hi.toFixed(2)}` : 'FVG belum ada' },
+    { ok: obOk,  txt: ob ? `Harga masuk Order Block ${ob.lo.toFixed(2)} - ${ob.hi.toFixed(2)}` : 'Order Block belum ada' },
+    { ok: idmOk, txt: 'Inducement (IDM) tersapu' },
+    { ok: htfOk, txt: `Trend H1 searah (${trend})` },
+    { ok: trigger, txt: 'Candle konfirmasi searah sudah close' }
+  ];
+
+  return {
+    key: 'KL_OB_IDM_FVG',
+    name: `KL + OB + IDM + FVG (${dir})`,
+    dir: ready ? dir : null,
+    score,
+    reasons,
+    slDist: ready ? slDist : null
+  };
+}
+
 function runAnalysis() {
-  const cd = state.candles || generateSafeCandles();
-  const m15 = cd.m15.slice(0, -1);
-  const atr = atrLast(m15, 14) || 2.5;
-
-  const highsM15 = m15.map(x => x[2]);
-  const lowsM15 = m15.map(x => x[3]);
-  const resistanceKey = Math.max(...highsM15.slice(-30));
-  const supportKey = Math.min(...lowsM15.slice(-30));
-  const currentP = state.price;
-
-  const nearSupport = Math.abs(currentP - supportKey) < atr * 2.0;
-  const nearResistance = Math.abs(currentP - resistanceKey) < atr * 2.0;
-
-  let chosenDir = null;
-  let stratName = '';
-  let reasons = [];
-  let score = 75;
-
-  if (nearSupport) {
-    chosenDir = 'BUY';
-    stratName = 'KL Support + OB + IDM + FVG (BUY)';
-    score = 92;
-    reasons.push({ ok: true, txt: `Harga menyentuh Key Level Support (${fmtInt(supportKey)})` });
-    reasons.push({ ok: true, txt: 'Konfirmasi Bullish Order Block & FVG Valid' });
-    reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' });
-  } else if (nearResistance) {
-    chosenDir = 'SELL';
-    stratName = 'KL Resistance + OB + IDM + FVG (SELL)';
-    score = 92;
-    reasons.push({ ok: true, txt: `Harga menyentuh Key Level Resistance (${fmtInt(resistanceKey)})` });
-    reasons.push({ ok: true, txt: 'Konfirmasi Bearish Order Block & FVG Valid' });
-    reasons.push({ ok: true, txt: 'Inducement (IDM) Tersapu Sempurna' });
-  } else {
-    chosenDir = Math.random() > 0.5 ? 'BUY' : 'SELL';
-    stratName = chosenDir === 'BUY' ? 'KL Support Setup (BUY)' : 'KL Resistance Setup (SELL)';
-    score = 85;
-    reasons.push({ ok: true, txt: 'Memindai area Key Level terdekat' });
-    reasons.push({ ok: true, txt: 'Struktur SMC OB + IDM + FVG aktif' });
+  const empty = { atr: null, strats: [], cT: Date.now() };
+  if (!state.candles || !state.candlesReal || state.price == null) {
+    state.analysis = empty;
+    renderEngineUI();
+    return;
   }
 
-  const activeStrat = {
-    key: 'PURE_KL_SMC',
-    name: stratName,
-    dir: chosenDir,
-    score: score,
-    reasons: reasons,
-    supportKey,
-    resistanceKey
-  };
+  const c = state.candles.m15.slice(0, -1);
+  const atr = atrLast(c, 14);
+  if (!atr) {
+    state.analysis = empty;
+    renderEngineUI();
+    return;
+  }
 
-  state.analysis = { atr, strats: [activeStrat], cT: Date.now() };
+  const { highs, lows } = findSwings(c.slice(-60));
+  const price = state.price;
+  const support = lows.filter(p => p <= price).sort((a, b) => b - a)[0] ?? null;
+  const resistance = highs.filter(p => p >= price).sort((a, b) => a - b)[0] ?? null;
+
+  const levels = { support, resistance };
+  const strats = ['BUY', 'SELL'].map(d => evalStrategy(d, c, state.candles.h1, price, atr, levels));
+
+  state.analysis = { atr, strats, cT: Date.now() };
   renderEngineUI();
   checkAutoSignal();
 }
 
 function checkAutoSignal() {
   const a = state.analysis;
-  if (!a || highImpactNewsActive) return;
+  if (!a || !a.strats.length || highImpactNewsActive || !liveOk || !state.candlesReal) return;
 
-  if (!liveOk) return;
-
-  const valid = a.strats.filter(s => s.dir && s.score >= state.thr);
+  const valid = a.strats.filter(s => s.dir && s.slDist);
   if (!valid.length) return;
 
   valid.forEach(best => {
-    // AUTO-CLOSE: Jika ada sinyal baru, posisi aktif yang BERLAWANAN arah langsung ditutup (Won / Close Profit)
-    let stateChanged = false;
+    const isBuy = best.dir === 'BUY';
+    const entry = state.price;
+
+    // Posisi aktif yang berlawanan arah ditutup dulu (tercatat sebagai close manual, bukan WON)
+    let changed = false;
     state.signals.forEach(s => {
       if (s.status === 'ACTIVE' && s.dir !== best.dir) {
-        s.status = 'WON';
-        s.closeNote = 'Close Profit';
-        stateChanged = true;
+        s.status = 'CLOSED';
+        s.closeNote = 'Ditutup: sinyal berlawanan';
+        s.closePrice = entry;
+        changed = true;
       }
     });
+    if (changed) saveSignals();
 
-    if (stateChanged) saveSignals();
-
-    const recentSignals = state.signals.filter(s => s.status === 'ACTIVE');
-    if (recentSignals.length >= 3) return;
-
-    const isDuplicate = recentSignals.some(s => s.dir === best.dir && Math.abs(s.entry - state.price) < 12.0);
+    const active = state.signals.filter(s => s.status === 'ACTIVE');
+    if (active.length >= 3) return;
+    const isDuplicate = active.some(s => s.dir === best.dir && Math.abs(s.entry - entry) < best.slDist);
     if (isDuplicate) return;
 
-    const entry = state.price;
-    const isBuy = best.dir === 'BUY';
-    const risk = a.atr * 1.3;
+    const risk = best.slDist;
     const sl = isBuy ? entry - risk : entry + risk;
-    const tp1 = isBuy ? entry + (risk * 1.2) : entry - (risk * 1.2);
-    const tp2 = isBuy ? entry + (risk * 2.5) : entry - (risk * 2.5);
-    const tp3 = isBuy ? entry + (risk * 4.0) : entry - (risk * 4.0);
+    const tp1 = isBuy ? entry + risk * 1.5 : entry - risk * 1.5;
+    const tp2 = isBuy ? entry + risk * 2.5 : entry - risk * 2.5;
+    const tp3 = isBuy ? entry + risk * 4.0 : entry - risk * 4.0;
 
     const newSig = {
-      id: 'SIG_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+      id: 'SIG_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       pair: 'XAUUSD',
       tf: 'M15',
       dir: best.dir,
@@ -683,7 +703,7 @@ function checkAutoSignal() {
       tp2: +tp2.toFixed(2),
       tp3: +tp3.toFixed(2),
       slPips: Math.round(risk * 10),
-      tp1Pips: Math.round(risk * 12),
+      tp1Pips: Math.round(risk * 15),
       tp2Pips: Math.round(risk * 25),
       tp3Pips: Math.round(risk * 40),
       tp1Hit: false, tp2Hit: false, tp3Hit: false,
@@ -695,7 +715,7 @@ function checkAutoSignal() {
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 KL + SMC Sinyal XAUUSD ${newSig.dir}`, `Entry: ${fmtInt(newSig.entry)}`);
+    sendAppNotification(`🎯 KL + OB + IDM + FVG ${newSig.dir} XAUUSD`, `Entry: ${fmt(newSig.entry)} · SL: ${fmt(newSig.sl)}`);
   });
 }
 
@@ -707,31 +727,23 @@ function monitorSignals() {
     if (s.status !== 'ACTIVE') return;
     const isBuy = s.dir === 'BUY';
 
-    if (!s.tp1Hit && !s.beMoved) {
-      const pipsInProfit = isBuy ? (p - s.entry) : (s.entry - p);
-      if (pipsInProfit >= 8) {
-        s.sl = s.entry; 
-        s.beMoved = true; 
-        changed = true;
-      }
-    }
-
     if (!s.tp1Hit && (isBuy ? p >= s.tp1 : p <= s.tp1)) {
-      s.tp1Hit = true; s.sl = s.entry; s.beMoved = true; changed = true;
+      s.tp1Hit = true; changed = true;
     }
     if (!s.tp2Hit && (isBuy ? p >= s.tp2 : p <= s.tp2)) {
       s.tp2Hit = true; changed = true;
     }
     if (!s.tp3Hit && (isBuy ? p >= s.tp3 : p <= s.tp3)) {
-      s.tp3Hit = true; s.status = 'WON'; changed = true;
+      s.tp3Hit = true; s.status = 'WON'; s.closePrice = p; changed = true;
     }
     if (s.status === 'ACTIVE' && (isBuy ? p <= s.sl : p >= s.sl)) {
-      s.status = (s.tp1Hit || s.beMoved) ? 'WON' : 'LOSS';
+      s.status = s.tp1Hit ? 'WON' : 'LOSS';
+      s.closePrice = p;
       changed = true;
     }
   });
 
-  if (changed) { saveSignals(); renderSignals(); }
+  if (changed) { saveSignals(); renderSignals(); renderStats(); }
 }
 
 function timeAgo(ts) {
@@ -751,9 +763,9 @@ function renderSignals() {
     list.innerHTML = `
       <div class="sig-card" style="text-align:center;padding:28px 16px">
         <div style="font-size:28px;margin-bottom:8px">🔍</div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu Area Key Level + SMC</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu setup lengkap</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Bot memindai konfluensi Key Level (S/R), OB, IDM, & FVG secara aman.
+          Sinyal hanya muncul jika KL, FVG, OB, IDM, trend H1, dan candle konfirmasi terpenuhi dari data nyata.
         </div>
       </div>`;
     return;
@@ -762,7 +774,18 @@ function renderSignals() {
   list.innerHTML = state.signals.map((s, idx) => {
     const isBuy = s.dir === 'BUY';
     const timeStr = new Date(s.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    let statusHtml = s.status === 'ACTIVE' ? (s.tp1Hit ? `<span class="sig-status tp1">● 1 TP Hit · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`) : (s.status === 'WON' ? `<span class="sig-status won">● ${s.closeNote || 'Won'} · ${timeAgo(s.createdAt)}</span>` : `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`);
+    let statusHtml;
+    if (s.status === 'ACTIVE') {
+      statusHtml = s.tp1Hit
+        ? `<span class="sig-status tp1">● TP1 Hit · ${timeAgo(s.createdAt)}</span>`
+        : `<span class="sig-status active">● Active · ${timeAgo(s.createdAt)}</span>`;
+    } else if (s.status === 'WON') {
+      statusHtml = `<span class="sig-status won">● Won · ${timeAgo(s.createdAt)}</span>`;
+    } else if (s.status === 'LOSS') {
+      statusHtml = `<span class="sig-status loss">● SL Hit · ${timeAgo(s.createdAt)}</span>`;
+    } else {
+      statusHtml = `<span class="sig-status" style="color:var(--muted)">● Ditutup · ${timeAgo(s.createdAt)}</span>`;
+    }
 
     return `
     <div class="sig-card">
@@ -776,18 +799,17 @@ function renderSignals() {
         ${statusHtml}
       </div>
       <div class="grid-3">
-        <div class="lvl-box"><div class="lvl-lbl">ENTRY</div><div class="lvl-val">${fmtInt(s.entry)}</div></div>
-        <div class="lvl-box sl"><div class="lvl-lbl">SL ${s.beMoved ? '· BE' : ''} · ${s.slPips}p</div><div class="lvl-val">${fmtInt(s.sl)}</div></div>
-        <div class="lvl-box ${s.tp1Hit ? 'tp-hit' : ''}"><div class="lvl-lbl">${s.tp1Hit ? '✓ ' : ''}TP1 · ${s.tp1Pips}p</div><div class="lvl-val">${fmtInt(s.tp1)}</div></div>
+        <div class="lvl-box"><div class="lvl-lbl">ENTRY</div><div class="lvl-val">${fmt(s.entry)}</div></div>
+        <div class="lvl-box sl"><div class="lvl-lbl">SL · ${s.slPips}p</div><div class="lvl-val">${fmt(s.sl)}</div></div>
+        <div class="lvl-box ${s.tp1Hit ? 'tp-hit' : ''}"><div class="lvl-lbl">${s.tp1Hit ? '✓ ' : ''}TP1 · ${s.tp1Pips}p</div><div class="lvl-val">${fmt(s.tp1)}</div></div>
       </div>
       <div class="grid-2">
-        <div class="sub-lvl ${s.tp2Hit ? 'hit' : ''}"><span>${s.tp2Hit ? '✓' : '○'} TP2 <span class="price">${fmtInt(s.tp2)}</span></span><span class="pips-tag">${s.tp2Pips}p</span></div>
-        <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}"><span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmtInt(s.tp3)}</span></span><span class="pips-tag">${s.tp3Pips}p</span></div>
+        <div class="sub-lvl ${s.tp2Hit ? 'hit' : ''}"><span>${s.tp2Hit ? '✓' : '○'} TP2 <span class="price">${fmt(s.tp2)}</span></span><span class="pips-tag">${s.tp2Pips}p</span></div>
+        <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}"><span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmt(s.tp3)}</span></span><span class="pips-tag">${s.tp3Pips}p</span></div>
       </div>
       <div class="sig-foot">
         <span>${s.tf} · ${timeStr} · ${s.strat} (Skor ${s.score}%)</span>
         <div class="foot-actions">
-          <button class="foot-btn" onclick="openChartFor(${idx})">📊 Chart</button>
           <button class="foot-btn" onclick="openDetails(${idx})">Details ›</button>
         </div>
       </div>
@@ -795,21 +817,26 @@ function renderSignals() {
   }).join('');
 }
 
-function openChartFor(idx) { switchTab('chart', 'Live Chart', document.querySelectorAll('.nav-item')[1]); }
 function openDetails(idx) {
   const s = state.signals[idx]; if (!s) return;
   $('modalTitle').textContent = `${s.pair} ${s.dir} · Skor ${s.score}/100`;
-  $('modalBody').innerHTML = `<div style="margin-bottom:12px">Strat: <b>${s.strat}</b></div>` + (s.reasons || []).map(r => `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`).join('');
+  $('modalBody').innerHTML = `<div style="margin-bottom:12px">Strategi: <b>${s.strat}</b></div>` +
+    (s.reasons || []).map(r => `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`).join('');
   $('detailModal').classList.add('open');
 }
 function closeModal() { $('detailModal').classList.remove('open'); }
 
 function renderChart() {
   const svg = $('chartSvg');
+  if (!state.candles || !state.candlesReal) {
+    svg.innerHTML = '';
+    $('activePlanBox').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle MT5.</div>';
+    return;
+  }
   const W = 320, H = 200, N = 24;
-  let candles = (state.candles && state.candles.m15 && state.candles.m15.length >= N) ? state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] })) : generateSafeCandles().m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] }));
+  const candles = state.candles.m15.slice(-N).map(x => ({ o: x[1], h: x[2], l: x[3], c: x[4] }));
 
-  const activeSig = state.signals.find(s => s.status === 'ACTIVE') || state.signals[0];
+  const activeSig = state.signals.find(s => s.status === 'ACTIVE');
   const allVals = [...candles.flatMap(c => [c.h, c.l]), ...(activeSig ? [activeSig.sl, activeSig.tp1, activeSig.entry] : [])];
   const mn = Math.min(...allVals), mx = Math.max(...allVals), pad = ((mx - mn) * 0.12) || 1;
   const Y = v => 14 + (H - 28) * (1 - ((v - (mn - pad)) / ((mx + pad) - (mn - pad))));
@@ -819,7 +846,7 @@ function renderChart() {
   if (activeSig) {
     [[activeSig.tp1, '#10b981', 'TP1'], [activeSig.entry, '#f59e0b', 'ENTRY'], [activeSig.sl, '#ef4444', 'SL']].forEach(([val, col, lbl]) => {
       out += `<line x1="0" x2="${W}" y1="${Y(val)}" y2="${Y(val)}" stroke="${col}" stroke-width="1" stroke-dasharray="4 3"/>`;
-      out += `<text x="${W - 6}" y="${Y(val) - 3}" fill="${col}" font-size="8" text-anchor="end" font-family="monospace">${lbl} ${fmtInt(val)}</text>`;
+      out += `<text x="${W - 6}" y="${Y(val) - 3}" fill="${col}" font-size="8" text-anchor="end" font-family="monospace">${lbl} ${fmt(val)}</text>`;
     });
   }
   candles.forEach((c, i) => {
@@ -829,11 +856,12 @@ function renderChart() {
     out += `<rect x="${x - bw / 2}" y="${top}" width="${bw}" height="${bh}" fill="${col}" rx="1"/>`;
   });
   svg.innerHTML = out;
+
   $('activePlanBox').innerHTML = activeSig ? `
-    <div class="panel-title">Setup KL + SMC Aktif (${activeSig.dir})</div>
+    <div class="panel-title">Setup Aktif (${activeSig.dir})</div>
     <div class="row-item"><span>Entry</span><b>${fmt(activeSig.entry)}</b></div>
     <div class="row-item"><span>Stop Loss</span><b style="color:var(--red)">${fmt(activeSig.sl)}</b></div>
-    <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmtInt(activeSig.tp1)} / ${fmtInt(activeSig.tp2)} / ${fmtInt(activeSig.tp3)}</b></div>
+    <div class="row-item"><span>TP1 / TP2 / TP3</span><b style="color:var(--green)">${fmt(activeSig.tp1)} / ${fmt(activeSig.tp2)} / ${fmt(activeSig.tp3)}</b></div>
   ` : '<div style="font-size:12px;color:var(--muted)">Belum ada setup aktif.</div>';
 }
 
@@ -843,12 +871,15 @@ function renderEngineUI() {
   ).join('');
 
   const a = state.analysis;
-  if (!a) { $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data market...</div>'; return; }
+  if (!a || !a.strats.length) {
+    $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle MT5...</div>';
+    return;
+  }
   $('engineRules').innerHTML = a.strats.map(st => `
     <div class="row-item">
       <div>
         <div style="font-weight:700">${st.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${st.dir || 'Menunggu konfirmasi'}</div>
+        <div style="font-size:11px;color:var(--muted)">${st.dir ? 'Sinyal siap' : 'Menunggu konfirmasi lengkap'}</div>
       </div>
       <div style="text-align:right">
         <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">Skor ${st.score}%</span>
@@ -856,6 +887,7 @@ function renderEngineUI() {
     </div>
   `).join('');
 }
+
 function setThr(t) { state.thr = t; renderEngineUI(); checkAutoSignal(); }
 function forceScan() { refreshCandles(); checkEconomicNews(); }
 
@@ -864,7 +896,7 @@ function renderStats() {
   const won = closed.filter(s => s.status === 'WON').length;
   const wr = closed.length ? Math.round((won / closed.length) * 100) : 0;
   $('statsSummary').innerHTML = `
-    <div class="panel-title">Statistik Performa KL + SMC Engine</div>
+    <div class="panel-title">Statistik Performa</div>
     <div class="grid-3" style="margin-top:8px">
       <div class="lvl-box"><div class="lvl-lbl">Total Selesai</div><div class="lvl-val">${closed.length}</div></div>
       <div class="lvl-box tp-hit"><div class="lvl-lbl">Won</div><div class="lvl-val">${won}</div></div>
@@ -881,43 +913,45 @@ function clearHistory() {
 async function pollPrice() {
   const prev = state.price;
   const d = await jsonpGet('', res => res && isFinite(Number(res.price)) && Number(res.price) > 0);
-  if (d) { 
-    state.price = Number(d.price); 
-    liveOk = true; 
-    $('connDot').classList.remove('sim'); 
-    $('connText').textContent = 'MT5 LIVE'; 
-  } else { 
-    state.price += (Math.random() - 0.5) * 1.5; 
-    liveOk = false; 
-    $('connDot').classList.add('sim'); 
-    $('connText').textContent = 'SAFE MODE'; 
+  if (d) {
+    state.price = Number(d.price);
+    liveOk = true;
+    $('connDot').classList.remove('sim');
+    $('connText').textContent = 'MT5 LIVE';
+  } else {
+    liveOk = false;
+    $('connDot').classList.add('sim');
+    $('connText').textContent = 'OFFLINE';
   }
-  state.hist.push(state.price); if (state.hist.length > 60) state.hist.shift();
-  $('livePrice').textContent = fmt(state.price);
-  const diff = state.price - prev;
-  $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
-  $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
-  monitorSignals();
+  if (state.price != null) {
+    $('livePrice').textContent = fmt(state.price);
+    if (prev != null) {
+      const diff = state.price - prev;
+      $('priceChg').textContent = `${diff >= 0 ? '▲' : '▼'} ${fmt(Math.abs(diff))}`;
+      $('priceChg').style.color = diff >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+    monitorSignals();
+  } else {
+    $('livePrice').textContent = '—';
+  }
 }
 
 async function refreshCandles() {
   const cd = await jsonpGet('candles=1', d => d && d.m15 && d.h1);
-  if (cd) { 
-    state.candles = cd; 
-  } else if (!state.candles) {
-    state.candles = generateSafeCandles();
+  if (cd) {
+    state.candles = cd;
+    state.candlesReal = true;
+  } else {
+    state.candlesReal = false;
   }
   runAnalysis();
 }
 
-for (let i = 0; i < 30; i++) state.hist.push(state.price + (Math.random() - 0.5) * 4);
 updateNotifUI();
-requestWakeLock();
 checkEconomicNews();
 renderSignals();
 renderEngineUI();
 runAnalysis();
-
 pollPrice().then(refreshCandles);
 setInterval(pollPrice, POLL_MS);
 setInterval(refreshCandles, CANDLE_POLL_MS);
