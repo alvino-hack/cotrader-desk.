@@ -232,7 +232,7 @@ body {
 <header class="topbar">
   <div>
     <h1 id="pageTitle" style="margin-bottom:2px;">Signals</h1>
-    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · KL + OB + IDM + FVG</span>
+    <span style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:0.05em;">@ekebilas_FX · KL + OB + IDM + FVG + ALCHEMIST</span>
   </div>
   <div class="live-badge">
     <span class="dot" id="connDot"></span>
@@ -287,7 +287,7 @@ body {
       <button class="btn-sec" onclick="testNotification()">🔔 TES BUNYI & NOTIFIKASI</button>
     </div>
     <div class="panel">
-      <div class="panel-title">KL + OB + IDM + FVG Engine Status</div>
+      <div class="panel-title">Engine Status (KL + ALCHEMIST)</div>
       <div id="engineRules"></div>
       <button class="btn-action" onclick="forceScan()">SCAN MARKET SEKARANG</button>
     </div>
@@ -341,18 +341,36 @@ const WORKER_URL = "https://script.google.com/macros/s/AKfycbwoFPgcEw52vFAdloE49
 const POLL_MS = 5000;
 const CANDLE_POLL_MS = 25000;
 const SW = 2;
-const WEIGHTS = { kl: 25, fvg: 20, ob: 20, idm: 20, htf: 15 };
+const THR_DEFAULT = 80;
+const FVG_MAX_AGE = 15;
+const MIN_SL_ATR = 0.5;
+const MAX_SL_ATR = 2.0;
+const COOLDOWN_MS = 4 * 15 * 60 * 1000;
+const KL_W = { kl: 25, fvg: 20, ob: 20, idm: 20, htf: 15 };
+
+// ---- ALCHEMIST: semua masukan ada di sini ----
+const ALCH = {
+  thr: 80,
+  weights: { sweep: 20, cisd: 30, ote: 25, ocl: 25 },
+  ts:  { lookback: 5,  range: 20 },
+  ls:  { lookback: 10, range: 10 },
+  cisdBackWindow: 3,
+  oteDeep: 0.79,
+  oteShallow: 0.62,
+  oclPadAtr: 0.3,
+  requireOCL: false
+};
 
 let liveOk = false;
 let highImpactNewsActive = false;
+let lastSentAt = { KL_BUY: 0, KL_SELL: 0, ALCH_BUY: 0, ALCH_SELL: 0 };
 
 const state = {
   price: null,
-  hist: [],
   candles: null,
   candlesReal: false,
   analysis: null,
-  thr: 80,
+  thr: THR_DEFAULT,
   signals: []
 };
 
@@ -492,6 +510,7 @@ function jsonpGet(qs, validate) {
   });
 }
 
+// ================= Indikator dasar =================
 function trSeries(c) {
   const tr = [];
   for (let i = 1; i < c.length; i++) {
@@ -508,9 +527,6 @@ function atrLast(c, n = 14) {
   return a;
 }
 
-// --- KL + OB + IDM + FVG ENGINE (dihitung dari candle nyata) ---
-// Candle format: [t, o, h, l, c, v]
-
 function findSwings(c) {
   const highs = [], lows = [];
   for (let i = SW; i < c.length - SW; i++) {
@@ -525,8 +541,16 @@ function findSwings(c) {
   return { highs, lows };
 }
 
-function findFVG(c, dir, lookback) {
-  const start = Math.max(2, c.length - lookback);
+function htfTrend(h1) {
+  if (!h1) return 'NONE';
+  const closed = h1.slice(0, -1);
+  if (closed.length < 20) return 'NONE';
+  const sma = closed.slice(-20).reduce((a, x) => a + x[4], 0) / 20;
+  return closed[closed.length - 1][4] > sma ? 'UP' : 'DOWN';
+}
+
+function findFVG(c, dir) {
+  const start = Math.max(2, c.length - FVG_MAX_AGE);
   for (let i = c.length - 1; i >= start; i--) {
     if (dir === 'BUY' && c[i][3] > c[i - 2][2]) {
       const lo = c[i - 2][2], hi = c[i][3];
@@ -555,79 +579,151 @@ function hasSweep(c, dir, lookback) {
     if (dir === 'BUY') {
       const lvl = c[k][3];
       if (!(lvl < c[k - 1][3] && lvl < c[k + 1][3])) continue;
-      for (let m = k + 1; m < c.length; m++) {
-        if (c[m][3] < lvl && c[m][4] > lvl) return true;
-      }
+      for (let m = k + 1; m < c.length; m++) if (c[m][3] < lvl && c[m][4] > lvl) return true;
     } else {
       const lvl = c[k][2];
       if (!(lvl > c[k - 1][2] && lvl > c[k + 1][2])) continue;
-      for (let m = k + 1; m < c.length; m++) {
-        if (c[m][2] > lvl && c[m][4] < lvl) return true;
-      }
+      for (let m = k + 1; m < c.length; m++) if (c[m][2] > lvl && c[m][4] < lvl) return true;
     }
   }
   return false;
 }
 
-function htfTrend(h1) {
-  if (!h1) return 'NONE';
-  const closed = h1.slice(0, -1);
-  if (closed.length < 20) return 'NONE';
-  const sma = closed.slice(-20).reduce((a, x) => a + x[4], 0) / 20;
-  return closed[closed.length - 1][4] > sma ? 'UP' : 'DOWN';
+// Sweep: cari dari candle sebelum candle terakhir yang sudah close, ke belakang sampai lookback.
+// Candle terakhir (c.length - 1) dibiarkan sebagai konfirmasi reaksi.
+function findSweep(c, dir, lookback, range) {
+  const newest = c.length - 2;
+  const oldest = Math.max(range, newest - lookback + 1);
+  for (let s = newest; s >= oldest; s--) {
+    let lvl = dir === 'BUY' ? Infinity : -Infinity;
+    for (let k = s - range; k < s; k++) {
+      lvl = dir === 'BUY' ? Math.min(lvl, c[k][3]) : Math.max(lvl, c[k][2]);
+    }
+    const b = c[s];
+    if (dir === 'BUY' && b[3] < lvl && b[4] > lvl) return { idx: s, level: lvl };
+    if (dir === 'SELL' && b[2] > lvl && b[4] < lvl) return { idx: s, level: lvl };
+  }
+  return null;
 }
 
-function evalStrategy(dir, c, h1, price, atr, levels) {
+// CISD: cek setiap candle lawan arah dari sweepIdx ke belakang (dalam cisdBackWindow).
+// Setelah sweep, harus ada close yang menembus open candle lawan arah tersebut.
+function findCISD(c, dir, sweepIdx) {
+  for (let b = sweepIdx; b >= Math.max(0, sweepIdx - ALCH.cisdBackWindow); b--) {
+    const opp = dir === 'BUY' ? c[b][4] < c[b][1] : c[b][4] > c[b][1];
+    if (!opp) continue;
+    const lvl = c[b][1];
+    for (let m = sweepIdx; m < c.length; m++) {
+      if (dir === 'BUY' && c[m][4] > lvl) return { lvl, idx: m };
+      if (dir === 'SELL' && c[m][4] < lvl) return { lvl, idx: m };
+    }
+  }
+  return null;
+}
+
+// OTE: zona retracement dari ekstrem setelah sweep (candle sweep ikut dihitung)
+function oteZone(c, dir, sw) {
+  const after = c.slice(sw.idx);
+  if (!after.length) return null;
+  const ext = dir === 'BUY' ? Math.max(...after.map(x => x[2])) : Math.min(...after.map(x => x[3]));
+  const base = dir === 'BUY' ? c[sw.idx][3] : c[sw.idx][2];
+  const range = Math.abs(ext - base);
+  if (range === 0) return null;
+  const a = dir === 'BUY' ? ext - range * ALCH.oteDeep : ext + range * ALCH.oteDeep;
+  const b = dir === 'BUY' ? ext - range * ALCH.oteShallow : ext + range * ALCH.oteShallow;
+  return { lo: Math.min(a, b), hi: Math.max(a, b) };
+}
+
+// ================= Engine 1: KL + OB + IDM + FVG =================
+function evalKL(dir, c, h1, price, atr, kl) {
   const isBuy = dir === 'BUY';
-  const kl = isBuy ? levels.support : levels.resistance;
   const pad = atr * 0.3;
 
-  const fvg = findFVG(c, dir, 40);
+  const fvg = findFVG(c, dir);
   const ob = fvg ? findOB(c, dir, fvg.i) : null;
+  const zone = ob || fvg;
 
-  const klOk = kl !== null && Math.abs(price - kl) <= atr * 1.5;
+  const klOk = kl != null && Math.abs(price - kl) <= atr * 1.5;
   const fvgOk = !!fvg && price >= fvg.lo - pad && price <= fvg.hi + pad;
   const obOk = !!ob && price >= ob.lo - pad && price <= ob.hi + pad;
+  const zoneOk = fvgOk || obOk;
   const idmOk = hasSweep(c, dir, 20);
-  const trend = htfTrend(h1);
-  const htfOk = trend === (isBuy ? 'UP' : 'DOWN');
+  const htfOk = htfTrend(h1) === (isBuy ? 'UP' : 'DOWN');
 
   const last = c[c.length - 1];
   const trigger = isBuy ? last[4] > last[1] : last[4] < last[1];
 
-  const score = (klOk ? WEIGHTS.kl : 0) + (fvgOk ? WEIGHTS.fvg : 0) +
-                (obOk ? WEIGHTS.ob : 0) + (idmOk ? WEIGHTS.idm : 0) +
-                (htfOk ? WEIGHTS.htf : 0);
+  const score = (klOk ? KL_W.kl : 0) + (fvgOk ? KL_W.fvg : 0) + (obOk ? KL_W.ob : 0) +
+                (idmOk ? KL_W.idm : 0) + (htfOk ? KL_W.htf : 0);
 
   let slDist = null;
-  if (ob) {
-    const slPrice = isBuy ? ob.lo - atr * 0.2 : ob.hi + atr * 0.2;
+  if (zone) {
+    const slPrice = isBuy ? zone.lo - atr * 0.2 : zone.hi + atr * 0.2;
     slDist = Math.abs(price - slPrice);
   }
-  const slOk = slDist !== null && slDist >= atr * 0.5 && slDist <= atr * 2.5;
-  const ready = trigger && slOk && (fvgOk || obOk) && score >= state.thr;
+  const slOk = slDist !== null && slDist >= atr * MIN_SL_ATR && slDist <= atr * MAX_SL_ATR;
 
-  const reasons = [
-    { ok: klOk,  txt: kl != null ? `Dekat Key Level ${isBuy ? 'Support' : 'Resistance'} (${kl.toFixed(2)})` : 'Key Level belum terbentuk' },
-    { ok: fvgOk, txt: fvg ? `Harga masuk FVG ${fvg.lo.toFixed(2)} - ${fvg.hi.toFixed(2)}` : 'FVG belum ada' },
-    { ok: obOk,  txt: ob ? `Harga masuk Order Block ${ob.lo.toFixed(2)} - ${ob.hi.toFixed(2)}` : 'Order Block belum ada' },
-    { ok: idmOk, txt: 'Inducement (IDM) tersapu' },
-    { ok: htfOk, txt: `Trend H1 searah (${trend})` },
-    { ok: trigger, txt: 'Candle konfirmasi searah sudah close' }
-  ];
-
+  const ready = htfOk && trigger && zoneOk && slOk && score >= state.thr;
   return {
-    key: 'KL_OB_IDM_FVG',
-    name: `KL + OB + IDM + FVG (${dir})`,
-    dir: ready ? dir : null,
-    score,
-    reasons,
-    slDist: ready ? slDist : null
+    eng: 'KL', label: 'KL+OB+IDM+FVG', dir, ready, score,
+    slDist: ready ? slDist : null,
+    reasons: [
+      { ok: klOk,  txt: kl != null ? `Dekat Key Level ${isBuy ? 'Support' : 'Resistance'} (${kl.toFixed(2)})` : 'Key Level belum terbentuk' },
+      { ok: fvgOk, txt: fvg ? `Harga masuk FVG ${fvg.lo.toFixed(2)} - ${fvg.hi.toFixed(2)}` : 'FVG belum ada' },
+      { ok: obOk,  txt: ob ? `Harga masuk Order Block ${ob.lo.toFixed(2)} - ${ob.hi.toFixed(2)}` : 'Order Block belum ada' },
+      { ok: idmOk, txt: 'Inducement (IDM) tersapu' },
+      { ok: htfOk, txt: `Trend H1 searah (${htfTrend(h1)})` },
+      { ok: trigger, txt: 'Candle konfirmasi searah sudah close' }
+    ]
   };
 }
 
+// ================= Engine 2: ALCHEMIST =================
+function evalALCH(dir, c, price, atr) {
+  const isBuy = dir === 'BUY';
+  const pad = atr * ALCH.oclPadAtr;
+
+  const sw = findSweep(c, dir, ALCH.ts.lookback, ALCH.ts.range) ||
+             findSweep(c, dir, ALCH.ls.lookback, ALCH.ls.range);
+  const sc = sw ? c[sw.idx] : null;
+  const cisd = sw ? findCISD(c, dir, sw.idx) : null;
+  const ote = sw ? oteZone(c, dir, sw) : null;
+
+  const oteOk = !!ote && price >= ote.lo && price <= ote.hi;
+  const oclOk = !!sc && price >= Math.min(sc[2], sc[3]) - pad && price <= Math.max(sc[2], sc[3]) + pad;
+
+  const last = c[c.length - 1];
+  const trigger = isBuy ? last[4] > last[1] : last[4] < last[1];
+
+  let slDist = null;
+  if (sc) {
+    const slPrice = isBuy ? sc[3] - atr * 0.2 : sc[2] + atr * 0.2;
+    slDist = Math.abs(price - slPrice);
+  }
+  const slOk = slDist !== null && slDist >= atr * MIN_SL_ATR && slDist <= atr * MAX_SL_ATR;
+
+  const W = ALCH.weights;
+  const score = (sw ? W.sweep : 0) + (cisd ? W.cisd : 0) + (oteOk ? W.ote : 0) + (oclOk ? W.ocl : 0);
+
+  const ready = !!sw && !!cisd && oteOk && trigger && slOk &&
+                (!ALCH.requireOCL || oclOk) && score >= ALCH.thr;
+
+  return {
+    eng: 'ALCH', label: 'ALCHEMIST', dir, ready, score,
+    slDist: ready ? slDist : null,
+    reasons: [
+      { ok: !!sw,   txt: sw ? 'Sweep terdeteksi' : 'Belum ada sweep' },
+      { ok: !!cisd, txt: cisd ? `CISD terkonfirmasi di ${cisd.lvl.toFixed(2)}` : 'CISD belum terjadi' },
+      { ok: oteOk,  txt: ote ? `Harga di OTE ${ote.lo.toFixed(2)} - ${ote.hi.toFixed(2)}` : 'OTE belum terbentuk' },
+      { ok: oclOk,  txt: 'Harga kembali ke range candle sweep' },
+      { ok: trigger, txt: 'Candle konfirmasi searah sudah close' }
+    ]
+  };
+}
+
+// ================= Analisis & sinyal =================
 function runAnalysis() {
-  const empty = { atr: null, strats: [], cT: Date.now() };
+  const empty = { atr: null, results: [], cT: Date.now() };
   if (!state.candles || !state.candlesReal || state.price == null) {
     state.analysis = empty;
     renderEngineUI();
@@ -636,7 +732,7 @@ function runAnalysis() {
 
   const c = state.candles.m15.slice(0, -1);
   const atr = atrLast(c, 14);
-  if (!atr) {
+  if (c.length < 60 || !atr) {
     state.analysis = empty;
     renderEngineUI();
     return;
@@ -647,26 +743,33 @@ function runAnalysis() {
   const support = lows.filter(p => p <= price).sort((a, b) => b - a)[0] ?? null;
   const resistance = highs.filter(p => p >= price).sort((a, b) => a - b)[0] ?? null;
 
-  const levels = { support, resistance };
-  const strats = ['BUY', 'SELL'].map(d => evalStrategy(d, c, state.candles.h1, price, atr, levels));
+  const results = [];
+  ['BUY', 'SELL'].forEach(dir => {
+    const kl = dir === 'BUY' ? support : resistance;
+    results.push({ ...evalKL(dir, c, state.candles.h1, price, atr, kl) });
+    results.push({ ...evalALCH(dir, c, price, atr) });
+  });
 
-  state.analysis = { atr, strats, cT: Date.now() };
+  state.analysis = { atr, results, cT: Date.now() };
   renderEngineUI();
   checkAutoSignal();
 }
 
 function checkAutoSignal() {
   const a = state.analysis;
-  if (!a || !a.strats.length || highImpactNewsActive || !liveOk || !state.candlesReal) return;
+  if (!a || !a.results.length || highImpactNewsActive || !liveOk || !state.candlesReal) return;
 
-  const valid = a.strats.filter(s => s.dir && s.slDist);
-  if (!valid.length) return;
+  const now = Date.now();
+  const ready = a.results.filter(r => r.ready);
 
-  valid.forEach(best => {
+  ready.forEach(best => {
+    const key = `${best.eng}_${best.dir}`;
+    if (now - lastSentAt[key] < COOLDOWN_MS) return;
+
     const isBuy = best.dir === 'BUY';
     const entry = state.price;
 
-    // Posisi aktif yang berlawanan arah ditutup dulu (tercatat sebagai close manual, bukan WON)
+    // Posisi aktif yang berlawanan arah ditutup dulu (close manual, bukan WON)
     let changed = false;
     state.signals.forEach(s => {
       if (s.status === 'ACTIVE' && s.dir !== best.dir) {
@@ -683,6 +786,8 @@ function checkAutoSignal() {
     const isDuplicate = active.some(s => s.dir === best.dir && Math.abs(s.entry - entry) < best.slDist);
     if (isDuplicate) return;
 
+    lastSentAt[key] = now;
+
     const risk = best.slDist;
     const sl = isBuy ? entry - risk : entry + risk;
     const tp1 = isBuy ? entry + risk * 1.5 : entry - risk * 1.5;
@@ -690,11 +795,11 @@ function checkAutoSignal() {
     const tp3 = isBuy ? entry + risk * 4.0 : entry - risk * 4.0;
 
     const newSig = {
-      id: 'SIG_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      id: 'SIG_' + now + '_' + Math.floor(Math.random() * 1000),
       pair: 'XAUUSD',
       tf: 'M15',
       dir: best.dir,
-      strat: best.name,
+      strat: `${best.label} (${best.dir})`,
       score: best.score,
       rr: '1:4.0',
       entry: +entry.toFixed(2),
@@ -708,14 +813,14 @@ function checkAutoSignal() {
       tp3Pips: Math.round(risk * 40),
       tp1Hit: false, tp2Hit: false, tp3Hit: false,
       status: 'ACTIVE',
-      createdAt: Date.now(),
+      createdAt: now,
       reasons: best.reasons
     };
 
     state.signals.unshift(newSig);
     saveSignals();
     renderSignals();
-    sendAppNotification(`🎯 KL + OB + IDM + FVG ${newSig.dir} XAUUSD`, `Entry: ${fmt(newSig.entry)} · SL: ${fmt(newSig.sl)}`);
+    sendAppNotification(`🎯 ${best.label} ${newSig.dir} XAUUSD`, `Entry: ${fmt(newSig.entry)} · SL: ${fmt(newSig.sl)}`);
   });
 }
 
@@ -765,7 +870,7 @@ function renderSignals() {
         <div style="font-size:28px;margin-bottom:8px">🔍</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:6px">Menunggu setup lengkap</div>
         <div style="font-size:12px;color:var(--muted);line-height:1.5">
-          Sinyal hanya muncul jika KL, FVG, OB, IDM, trend H1, dan candle konfirmasi terpenuhi dari data nyata.
+          Sinyal muncul jika syarat KL atau ALCHEMIST terpenuhi dari data candle nyata.
         </div>
       </div>`;
     return;
@@ -808,7 +913,7 @@ function renderSignals() {
         <div class="sub-lvl ${s.tp3Hit ? 'hit' : ''}"><span>${s.tp3Hit ? '✓' : '○'} TP3 <span class="price">${fmt(s.tp3)}</span></span><span class="pips-tag">${s.tp3Pips}p</span></div>
       </div>
       <div class="sig-foot">
-        <span>${s.tf} · ${timeStr} · ${s.strat} (Skor ${s.score}%)</span>
+        <span>${s.tf} · ${timeStr} · ${s.strat}</span>
         <div class="foot-actions">
           <button class="foot-btn" onclick="openDetails(${idx})">Details ›</button>
         </div>
@@ -819,9 +924,10 @@ function renderSignals() {
 
 function openDetails(idx) {
   const s = state.signals[idx]; if (!s) return;
-  $('modalTitle').textContent = `${s.pair} ${s.dir} · Skor ${s.score}/100`;
-  $('modalBody').innerHTML = `<div style="margin-bottom:12px">Strategi: <b>${s.strat}</b></div>` +
-    (s.reasons || []).map(r => `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`).join('');
+  $('modalTitle').textContent = `${s.pair} ${s.dir} · ${s.strat}`;
+  $('modalBody').innerHTML = (s.reasons || []).map(r =>
+    `<div style="margin-bottom:6px;color:${r.ok ? 'var(--green)' : 'var(--muted)'}">${r.ok ? '✓' : '•'} ${r.txt}</div>`
+  ).join('');
   $('detailModal').classList.add('open');
 }
 function closeModal() { $('detailModal').classList.remove('open'); }
@@ -871,24 +977,24 @@ function renderEngineUI() {
   ).join('');
 
   const a = state.analysis;
-  if (!a || !a.strats.length) {
+  if (!a || !a.results.length) {
     $('engineRules').innerHTML = '<div style="font-size:12px;color:var(--muted)">Menunggu data candle MT5...</div>';
     return;
   }
-  $('engineRules').innerHTML = a.strats.map(st => `
+  $('engineRules').innerHTML = a.results.map(r => `
     <div class="row-item">
       <div>
-        <div style="font-weight:700">${st.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${st.dir ? 'Sinyal siap' : 'Menunggu konfirmasi lengkap'}</div>
+        <div style="font-weight:700">${r.label} (${r.dir})</div>
+        <div style="font-size:11px;color:var(--muted)">${r.ready ? 'Sinyal siap' : 'Menunggu konfirmasi lengkap'}</div>
       </div>
       <div style="text-align:right">
-        <span class="dir-pill ${st.score >= state.thr ? 'buy' : ''}" style="${st.score < state.thr ? 'background:var(--card-inner);color:var(--muted)' : ''}">Skor ${st.score}%</span>
+        <span class="dir-pill ${r.ready ? 'buy' : ''}" style="${r.ready ? '' : 'background:var(--card-inner);color:var(--muted)'}">Skor ${r.score}%</span>
       </div>
     </div>
   `).join('');
 }
 
-function setThr(t) { state.thr = t; renderEngineUI(); checkAutoSignal(); }
+function setThr(t) { state.thr = t; ALCH.thr = t; renderEngineUI(); runAnalysis(); }
 function forceScan() { refreshCandles(); checkEconomicNews(); }
 
 function renderStats() {
